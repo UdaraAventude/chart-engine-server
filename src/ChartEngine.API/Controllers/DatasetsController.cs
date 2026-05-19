@@ -1,4 +1,4 @@
-﻿namespace ChartEngine.API.Controllers;
+namespace ChartEngine.API.Controllers;
 
 using ChartEngine.Application.Interfaces.Services;
 using Microsoft.AspNetCore.Mvc;
@@ -17,7 +17,8 @@ public class DatasetsController : ControllerBase
     }
 
     [HttpPost("upload")]
-    [RequestSizeLimit(500_000_000)]  
+    [DisableRequestSizeLimit] 
+    [RequestFormLimits(ValueLengthLimit = int.MaxValue, MultipartBodyLengthLimit = 2_147_483_647)] 
     public async Task<IActionResult> UploadAsync(
         IFormFile file,
         CancellationToken ct)
