@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chart Engine Test Client</title>
+    <!-- Load SignalR -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/8.0.0/signalr.min.js"></script>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; padding: 2rem; max-width: 800px; margin: 0 auto; background: #f8f9fa; }
+        .card { background: white; padding: 2rem; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin-bottom: 2rem; }
+        .log-container { background: #1e1e1e; color: #00ff00; padding: 1rem; border-radius: 8px; height: 300px; overflow-y: auto; font-family: monospace; }
+        .btn { background: #007bff; color: white; border: none; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; font-size: 1rem; }
+        .btn:disabled { background: #ccc; cursor: not-allowed; }
+        .btn:hover:not(:disabled) { background: #0056b3; }
+        h1, h2 { margin-top: 0; color: #333; }
+        .status { margin-top: 1rem; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+    <div class="card">
+        <h1>Chart Engine Data Pipeline Test</h1>
+        <p>Use this tool to upload your 1M+ row datasets directly to the backend and monitor the live progress.</p>
+        
+        <input type="file" id="fileInput" accept=".csv" />
+        <button id="uploadBtn" class="btn">Upload Dataset</button>
+        
+        <div id="uploadStatus" class="status"></div>
+    </div>
+
+    <div class="card">
+        <h2>Live Processing Logs (SignalR)</h2>
+        <div id="logOutput" class="log-container">
+            <div>Waiting to connect...</div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = "http://localhost:5110";
+        let connection = null;
+
+        const fileInput = document.getElementById('fileInput');
+        const uploadBtn = document.getElementById('uploadBtn');
+        const logOutput = document.getElementById('logOutput');
+        const uploadStatus = document.getElementById('uploadStatus');
+
+        function appendLog(message, isError = false) {
+            const div = document.createElement('div');
+            div.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            if (isError) div.style.color = '#ff4444';
+            logOutput.appendChild(div);
+            logOutput.scrollTop = logOutput.scrollHeight;
+        }
+
+        async function setupSignalR() {
+            connection = new signalR.HubConnectionBuilder()
+                .withUrl(`${API_BASE}/hubs/dataset`)
+                .withAutomaticReconnect()
+                .build();
+
+            connection.on("DatasetProgress", data => {
+                appendLog(`[PROGRESS] ${data.percent}% - ${data.message}`);
+            });
+
+            connection.on("DatasetReady", data => {
+                appendLog(`[SUCCESS] Dataset ${data.datasetId} processed successfully!`);
+                appendLog(`Total Rows: ${data.totalRows}`);
+                appendLog(`Dimensions: ${data.dimensions.join(", ")}`);
+                appendLog(`Metrics: ${data.metrics.join(", ")}`);
+            });
+
+            connection.on("DatasetFailed", data => {
+                appendLog(`[FAILED] Dataset ${data.datasetId} failed: ${data.error}`, true);
+            });
+
+            try {
+                await connection.start();
+                appendLog("Connected to real-time logs.");
+            } catch (err) {
+                appendLog("Failed to connect to SignalR: " + err.toString(), true);
+            }
+        }
+
+        uploadBtn.addEventListener('click', async () => {
+            const file = fileInput.files[0];
+            if (!file) {
+                alert("Please select a file first.");
+                return;
+            }
+
+            uploadBtn.disabled = true;
+            uploadStatus.textContent = `Uploading ${file.name} (${(file.size / 1024 / 1024).toFixed(2)} MB)...`;
+            appendLog(`Starting upload for ${file.name}...`);
+
+            const formData = new FormData();
+            formData.append('file', file);
+
+            try {
+                const response = await fetch(`${API_BASE}/api/v1/datasets/upload`, {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (!response.ok) {
+                    throw new Error(`Upload failed with status ${response.status}`);
+                }
+
+                const result = await response.json();
+                uploadStatus.textContent = `Upload complete! Backend processing started.`;
+                appendLog(`Received Dataset ID: ${result.datasetId}`);
+
+                // Join the SignalR group to get updates
+                if (connection && connection.state === signalR.HubConnectionState.Connected) {
+                    await connection.invoke("JoinDatasetGroup", result.datasetId);
+                    appendLog(`Joined SignalR group for Dataset ID: ${result.datasetId}`);
+                }
+            } catch (err) {
+                uploadStatus.textContent = `Upload Error!`;
+                uploadStatus.style.color = 'red';
+                appendLog(err.toString(), true);
+            } finally {
+                uploadBtn.disabled = false;
+            }
+        });
+
+        // Initialize SignalR on page load
+        setupSignalR();
+    </script>
+</body>
+</html>

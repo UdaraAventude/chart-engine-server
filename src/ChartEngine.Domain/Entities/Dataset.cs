@@ -54,5 +54,12 @@ namespace ChartEngine.Domain.Entities
             ErrorMessage = errorMessage;
             ProcessedAt = DateTime.UtcNow;
         }
+
+        public void SetStoragePath(string storagePath)
+        {
+            if (string.IsNullOrWhiteSpace(storagePath))
+                throw new ArgumentException("Storage path cannot be empty.", nameof(storagePath));
+            StoragePath = storagePath;
+        }
     }
 }
