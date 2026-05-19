@@ -48,5 +48,48 @@ public class DatasetsController : ControllerBase
         var status = await _datasetService.GetStatusAsync(datasetId, ct);
         return Ok(status);
     }
+
+    [HttpGet("{datasetId:guid}/tree")]
+    public async Task<IActionResult> GetTreeAsync(
+        Guid datasetId,
+        CancellationToken ct)
+    {
+        try
+        {
+            var treeJson = await _datasetService.GetTreeJsonAsync(datasetId, ct);
+            
+            if (string.IsNullOrEmpty(treeJson))
+            {
+                return NotFound(new { error = "Tree not found or empty." });
+            }
+
+            // Return the raw JSON string as application/json
+            return Content(treeJson, "application/json");
+        }
+        catch (ChartEngine.Domain.Exceptions.DatasetNotFoundException)
+        {
+            return NotFound(new { error = $"Dataset {datasetId} not found." });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
+    }
+
+    [HttpGet("{datasetId:guid}/schema")]
+    public async Task<IActionResult> GetSchemaAsync(
+        Guid datasetId,
+        CancellationToken ct)
+    {
+        try
+        {
+            var schema = await _datasetService.GetSchemaAsync(datasetId, ct);
+            return Ok(schema);
+        }
+        catch (ChartEngine.Domain.Exceptions.DatasetNotFoundException)
+        {
+            return NotFound(new { error = $"Dataset {datasetId} not found." });
+        }
+    }
 }
 

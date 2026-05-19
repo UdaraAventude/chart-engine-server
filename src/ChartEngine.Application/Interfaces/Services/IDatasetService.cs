@@ -7,4 +7,6 @@ public interface IDatasetService
 {
     Task<DatasetUploadResult> UploadAsync(IFormFile file, CancellationToken ct = default);
     Task<DatasetStatusDto> GetStatusAsync(Guid datasetId, CancellationToken ct = default);
+    Task<string?> GetTreeJsonAsync(Guid datasetId, CancellationToken ct = default);
+    Task<DatasetSchemaDto> GetSchemaAsync(Guid datasetId, CancellationToken ct = default);
 }

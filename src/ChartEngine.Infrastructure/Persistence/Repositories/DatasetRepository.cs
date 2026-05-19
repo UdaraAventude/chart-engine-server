@@ -1,4 +1,4 @@
-﻿namespace ChartEngine.Infrastructure.Persistence.Repositories;
+namespace ChartEngine.Infrastructure.Persistence.Repositories;
 
 using ChartEngine.Application.Interfaces.Repositories;
 using ChartEngine.Domain.Entities;
@@ -34,6 +34,26 @@ public class DatasetRepository : IDatasetRepository
         
         
         _context.Datasets.Update(dataset);
+        await _context.SaveChangesAsync(ct);
+    }
+
+    public async Task SaveColumnsAsync(IEnumerable<DatasetColumn> columns, CancellationToken ct = default)
+    {
+        await _context.DatasetColumns.AddRangeAsync(columns, ct);
+        await _context.SaveChangesAsync(ct);
+    }
+
+    public async Task<IEnumerable<DatasetColumn>> GetColumnsAsync(Guid datasetId, CancellationToken ct = default)
+    {
+        return await _context.DatasetColumns
+            .Where(c => c.DatasetId == datasetId)
+            .OrderBy(c => c.SortOrder)
+            .ToListAsync(ct);
+    }
+
+    public async Task SaveConfigAsync(DatasetConfig config, CancellationToken ct = default)
+    {
+        await _context.DatasetConfigs.AddAsync(config, ct);
         await _context.SaveChangesAsync(ct);
     }
 }
