@@ -1,4 +1,4 @@
-using ChartEngine.Infrastructure.Extensions;
+﻿using ChartEngine.Infrastructure.Extensions;
 using ChartEngine.Application.Hubs;
 using ChartEngine.API.Middleware;
 
@@ -15,7 +15,7 @@ builder.Services.AddSwaggerGen();
 
 var app = builder.Build();
 
-// This must be FIRST in the pipeline — catches exceptions from everything below
+
 app.UseMiddleware<GlobalExceptionMiddleware>();
 
 app.UseSwagger();
@@ -26,3 +26,4 @@ app.MapHub<DatasetHub>("/hubs/dataset");
 app.MapGet("/health", () => Results.Ok(new { status = "healthy" }));
 
 app.Run();
+

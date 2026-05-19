@@ -1,4 +1,4 @@
-namespace ChartEngine.Infrastructure.Persistence;
+﻿namespace ChartEngine.Infrastructure.Persistence;
 
 using ChartEngine.Domain.Entities;
 using ChartEngine.Domain.Enums;
@@ -15,7 +15,7 @@ public class AppDbContext : DbContext
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
-        // Tell EF Core how to map the Dataset entity to the Datasets table
+        
         modelBuilder.Entity<Dataset>(entity =>
         {
             entity.HasKey(d => d.Id);
@@ -28,8 +28,8 @@ public class AppDbContext : DbContext
                 .IsRequired()
                 .HasMaxLength(1024);
 
-            // Store the enum as a string in the DB, not a number
-            // "Ready" is readable; 2 is not
+            
+            
             entity.Property(d => d.Status)
                 .HasConversion<string>()
                 .HasMaxLength(20);
@@ -45,7 +45,7 @@ public class AppDbContext : DbContext
             entity.Property(c => c.Role).HasConversion<string>().HasMaxLength(20);
             entity.Property(c => c.RejectionReason).HasMaxLength(100);
 
-            // When a Dataset is deleted, all its columns are deleted too
+            
             entity.HasOne<Dataset>()
                   .WithMany()
                   .HasForeignKey(c => c.DatasetId)
@@ -54,7 +54,7 @@ public class AppDbContext : DbContext
 
         modelBuilder.Entity<DatasetConfig>(entity =>
         {
-            entity.HasKey(c => c.DatasetId);  // one-to-one: DatasetId IS the primary key
+            entity.HasKey(c => c.DatasetId);  
 
             entity.HasOne<Dataset>()
                   .WithOne()
@@ -66,9 +66,9 @@ public class AppDbContext : DbContext
         {
             entity.HasKey(t => t.Id);
 
-            entity.HasIndex(t => t.DatasetId).IsUnique();  // one tree per dataset
+            entity.HasIndex(t => t.DatasetId).IsUnique();  
 
-            entity.Property(t => t.TreeJson).IsRequired();  // no max length — can be very large
+            entity.Property(t => t.TreeJson).IsRequired();  
 
             entity.HasOne<Dataset>()
                   .WithOne()
@@ -77,3 +77,4 @@ public class AppDbContext : DbContext
         });
     }
 }
+

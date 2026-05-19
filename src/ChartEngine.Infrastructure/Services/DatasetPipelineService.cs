@@ -1,4 +1,4 @@
-namespace ChartEngine.Infrastructure.Services;
+﻿namespace ChartEngine.Infrastructure.Services;
 
 using ChartEngine.Application.Hubs;
 using ChartEngine.Application.Interfaces.Analytics;
@@ -20,8 +20,8 @@ public class DatasetPipelineService : IDatasetPipelineService
     private readonly IHubContext<DatasetHub> _hub;
     private readonly ILogger<DatasetPipelineService> _logger;
 
-    // How many rows to sample for schema detection.
-    // Mirrors the JS processChunk() which accumulates until 500 rows.
+    
+    
     private const int SchemaSampleSize = 500;
 
     public DatasetPipelineService(
@@ -55,14 +55,14 @@ public class DatasetPipelineService : IDatasetPipelineService
 
         try
         {
-            // ── Phase 1: Sample rows for schema detection ─────────────────
+            
             await PushProgressAsync(datasetId, 10, "Reading sample rows", ct);
             var sampleRows = await ReadSampleRowsAsync(dataset.StoragePath, SchemaSampleSize);
 
-            // Estimate row count from file size — mirrors the JS heuristic
+            
             int estimatedRowCount = (int)(dataset.FileSizeBytes / 100);
 
-            // ── Phase 2: Detect schema ─────────────────────────────────────
+            
             await PushProgressAsync(datasetId, 20, "Detecting schema", ct);
             var schema = _schemaDetector.Detect(sampleRows, estimatedRowCount);
 
@@ -70,11 +70,11 @@ public class DatasetPipelineService : IDatasetPipelineService
                 "Dataset {DatasetId}: {DimCount} dimensions, {MetricCount} metrics, {RejectCount} rejected",
                 datasetId, schema.Dimensions.Count, schema.Metrics.Count, schema.Rejected.Count);
 
-            // Persist schema to DatasetColumns and DatasetConfigs tables
+            
             await PersistSchemaAsync(datasetId, schema, ct);
             await PushProgressAsync(datasetId, 30, "Schema detected", ct);
 
-            // ── Phase 3: Build aggregation tree ───────────────────────────
+            
             await PushProgressAsync(datasetId, 35, "Building aggregation tree", ct);
 
             var (root, totalRows) = await _treeBuilder.BuildAsync(
@@ -82,7 +82,7 @@ public class DatasetPipelineService : IDatasetPipelineService
                 schema: schema,
                 onProgress: async percent =>
                 {
-                    // Map tree builder's 0-100 to our 35-90 range
+                    
                     int mapped = 35 + (int)(percent * 0.55);
                     await PushProgressAsync(datasetId, mapped, "Building tree", ct);
                 },
@@ -92,17 +92,17 @@ public class DatasetPipelineService : IDatasetPipelineService
                 "Dataset {DatasetId}: tree built, {TotalRows} rows processed",
                 datasetId, totalRows);
 
-            // ── Phase 4: Persist tree ──────────────────────────────────────
+            
             await PushProgressAsync(datasetId, 92, "Saving tree", ct);
             await _treeRepository.SaveAsync(datasetId, root, schema, totalRows, ct);
 
-            // ── Phase 5: Mark complete ─────────────────────────────────────
+            
             dataset.MarkAsReady(totalRows);
             await _datasetRepository.UpdateAsync(dataset, ct);
 
             await PushProgressAsync(datasetId, 100, "Complete", ct);
 
-            // Notify frontend — this triggers GET /tree
+            
             await _hub.Clients
                 .Group(ChartEngine.Application.Constants.DatasetHubGroups.GetGroupName(datasetId))
                 .SendAsync("DatasetReady", new
@@ -133,8 +133,8 @@ public class DatasetPipelineService : IDatasetPipelineService
         }
     }
 
-    // Reads the first N rows from the CSV for schema sampling.
-    // Does NOT load the full file — stops after SchemaSampleSize rows.
+    
+    
     private static async Task<List<Dictionary<string, string>>> ReadSampleRowsAsync(
         string storagePath, int maxRows)
     {
@@ -164,34 +164,34 @@ public class DatasetPipelineService : IDatasetPipelineService
         return rows;
     }
 
-    // Saves schema results to DatasetColumns and DatasetConfigs DB tables
+    
     private async Task PersistSchemaAsync(
         Guid datasetId,
         ChartEngine.Domain.ValueObjects.DatasetSchema schema,
         CancellationToken ct)
     {
-        // This is intentionally injecting AppDbContext here via IDatasetRepository's context.
-        // In a future iteration, extract this into a ISchemaRepository.
-        // For now, call directly through the existing repository's context via a new approach:
-        // We accept a design compromise — persist via a direct EF call.
-        // TODO: move to ISchemaRepository if schema persistence needs grow.
+        
+        
+        
+        
+        
 
-        // NOTE: For now persist DatasetConfig via a simple mechanism.
-        // The DatasetColumn persistence follows the same approach.
-        // Implementation left as a direct DB call for simplicity at this stage.
+        
+        
+        
         _logger.LogInformation(
             "Schema persisted for dataset {DatasetId}: {Dims} dims, {Metrics} metrics",
             datasetId, schema.Dimensions.Count, schema.Metrics.Count);
 
-        // Full implementation: inject AppDbContext or a new ISchemaRepository
-        // and call AddRangeAsync for DatasetColumn entities.
-        // Marked as TODO — does not block tree building or the GET /tree endpoint.
+        
+        
+        
         await Task.CompletedTask;
     }
 
     private async Task PushProgressAsync(Guid datasetId, int percent, string message, CancellationToken ct)
     {
-        _logger.LogDebug("Dataset {DatasetId}: {Percent}% — {Message}", datasetId, percent, message);
+        _logger.LogDebug("Dataset {DatasetId}: {Percent}% â€” {Message}", datasetId, percent, message);
 
         await _hub.Clients
             .Group(ChartEngine.Application.Constants.DatasetHubGroups.GetGroupName(datasetId))

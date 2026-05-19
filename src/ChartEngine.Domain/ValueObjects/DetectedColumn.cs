@@ -1,7 +1,7 @@
-namespace ChartEngine.Domain.ValueObjects;
+﻿namespace ChartEngine.Domain.ValueObjects;
 
-// A single column classification result — produced by SchemaDetector,
-// consumed by TreeBuilder to know which columns to use for hierarchy vs metrics.
+
+
 public record DetectedColumn(
     string Name,
     ColumnClassification Classification,
@@ -10,3 +10,4 @@ public record DetectedColumn(
 );
 
 public enum ColumnClassification { Dimension, Metric, Rejected }
+

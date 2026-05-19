@@ -1,4 +1,4 @@
-namespace ChartEngine.Infrastructure.Extensions;
+﻿namespace ChartEngine.Infrastructure.Extensions;
 
 using ChartEngine.Application.Interfaces.Infrastructure;
 using ChartEngine.Application.Interfaces.Repositories;
@@ -38,11 +38,11 @@ public static class ServiceRegistrationExtensions
     public static IServiceCollection AddBackgroundPipeline(
         this IServiceCollection services)
     {
-        // Singleton: one shared channel instance for the whole app
+        
         services.AddSingleton<DatasetProcessingChannel>();
 
-        // AddHostedService registers the worker so .NET starts it automatically
-        // when the app starts and stops it cleanly when the app shuts down
+        
+        
         services.AddHostedService<DatasetProcessingWorker>();
 
         return services;
@@ -56,3 +56,4 @@ public static class ServiceRegistrationExtensions
         return services;
     }
 }
+

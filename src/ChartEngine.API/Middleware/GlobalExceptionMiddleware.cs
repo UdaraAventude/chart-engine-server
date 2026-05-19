@@ -1,4 +1,4 @@
-namespace ChartEngine.API.Middleware;
+﻿namespace ChartEngine.API.Middleware;
 
 using ChartEngine.Domain.Exceptions;
 using Microsoft.AspNetCore.Http;
@@ -19,7 +19,7 @@ public class GlobalExceptionMiddleware
     {
         try
         {
-            await _next(context);  // Run the next middleware / controller
+            await _next(context);  
         }
         catch (DatasetNotFoundException ex)
         {
@@ -48,3 +48,4 @@ public class GlobalExceptionMiddleware
         await context.Response.WriteAsync(JsonSerializer.Serialize(response));
     }
 }
+

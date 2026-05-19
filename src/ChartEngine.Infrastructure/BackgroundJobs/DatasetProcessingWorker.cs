@@ -1,4 +1,4 @@
-namespace ChartEngine.Infrastructure.BackgroundJobs;
+﻿namespace ChartEngine.Infrastructure.BackgroundJobs;
 
 using ChartEngine.Application.Interfaces.Services;
 using Microsoft.Extensions.DependencyInjection;
@@ -27,7 +27,7 @@ public sealed class DatasetProcessingWorker : BackgroundService
     }
 
     /// <summary>
-    /// Main loop — runs until stoppingToken is cancelled (app shutdown).
+    /// Main loop â€” runs until stoppingToken is cancelled (app shutdown).
     /// ReadAllAsync suspends here when queue is empty.
     /// Resumes each time a datasetId is enqueued.
     /// </summary>
@@ -57,9 +57,9 @@ public sealed class DatasetProcessingWorker : BackgroundService
     {
         _logger.LogInformation("Worker picked up dataset {DatasetId}", datasetId);
 
-        // Create a fresh DI scope for this job.
-        // When the using block ends, the scope is disposed —
-        // the DbContext connection is returned to the pool, memory is freed.
+        
+        
+        
         await using var scope = _scopeFactory.CreateAsyncScope();
         var pipeline = scope.ServiceProvider.GetRequiredService<IDatasetPipelineService>();
 
@@ -69,14 +69,15 @@ public sealed class DatasetProcessingWorker : BackgroundService
         }
         catch (OperationCanceledException)
         {
-            // App is shutting down mid-job — fine, will be re-queued on restart
+            
             _logger.LogWarning("Processing of dataset {DatasetId} was cancelled", datasetId);
         }
         catch (Exception ex)
         {
-            // Catch here so one failed job doesn't kill the worker loop.
-            // The pipeline already marked the dataset as Failed in the DB.
+            
+            
             _logger.LogError(ex, "Worker caught unhandled error for dataset {DatasetId}", datasetId);
         }
     }
 }
+

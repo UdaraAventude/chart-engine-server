@@ -1,22 +1,28 @@
-namespace ChartEngine.Domain.Entities;
+using System;
 
-// Mirrors getDynamicConfig() output — stored per dataset so we know
-// what cardinality limits were applied when the tree was built.
-public class DatasetConfig
+namespace ChartEngine.Domain.Entities
 {
-    public Guid DatasetId { get; private set; }
-    public int MaxDimCardinality { get; private set; }
-    public int MaxHierarchyDepth { get; private set; }
-    public int FallbackTopValues { get; private set; }
+	public class DatasetConfig
+	{
+		public Guid DatasetId { get; private set; }
+		public int MaxDimCardinality { get; private set; }
+		public int MaxHierarchyDepth { get; private set; }
+		public int FallbackTopValues { get; private set; }
 
-    private DatasetConfig() { }
+		// Navigation
+		public Dataset? Dataset { get; private set; }
 
-    public static DatasetConfig Create(Guid datasetId, int maxDimCardinality, int maxHierarchyDepth, int fallbackTopValues)
-        => new()
-        {
-            DatasetId = datasetId,
-            MaxDimCardinality = maxDimCardinality,
-            MaxHierarchyDepth = maxHierarchyDepth,
-            FallbackTopValues = fallbackTopValues
-        };
+		private DatasetConfig() { }
+
+		public static DatasetConfig Create(Guid datasetId, int maxDimCardinality, int maxHierarchyDepth, int fallbackTopValues)
+		{
+			return new DatasetConfig
+			{
+				DatasetId = datasetId,
+				MaxDimCardinality = maxDimCardinality,
+				MaxHierarchyDepth = maxHierarchyDepth,
+				FallbackTopValues = fallbackTopValues
+			};
+		}
+	}
 }

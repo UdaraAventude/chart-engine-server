@@ -1,13 +1,13 @@
-namespace ChartEngine.Domain.Entities;
+﻿namespace ChartEngine.Domain.Entities;
 
-// Represents one detected column from the CSV header.
-// Each dataset has many of these — one row per column.
+
+
 public class DatasetColumn
 {
     public Guid Id { get; private set; } = Guid.NewGuid();
     public Guid DatasetId { get; private set; }
     public string ColumnName { get; private set; } = string.Empty;
-    public ColumnRole Role { get; private set; }  // Dimension | Metric | Rejected
+    public ColumnRole Role { get; private set; }  
     public int? Cardinality { get; private set; }
     public string? RejectionReason { get; private set; }
     public int SortOrder { get; private set; }
@@ -25,3 +25,4 @@ public class DatasetColumn
 }
 
 public enum ColumnRole { Dimension, Metric, Rejected }
+
