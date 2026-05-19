@@ -6,17 +6,27 @@ using ChartEngine.Application.Interfaces.Repositories;
 using ChartEngine.Application.Interfaces.Services;
 using ChartEngine.Domain.Entities;
 using ChartEngine.Domain.Exceptions;
+using ChartEngine.Infrastructure.BackgroundJobs;
 using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Logging;
 
 public class DatasetService : IDatasetService
 {
     private readonly IDatasetRepository _repository;
     private readonly IFileStorage _fileStorage;
+    private readonly DatasetProcessingChannel _channel;
+    private readonly ILogger<DatasetService> _logger;
 
-    public DatasetService(IDatasetRepository repository, IFileStorage fileStorage)
+    public DatasetService(
+        IDatasetRepository repository,
+        IFileStorage fileStorage,
+        DatasetProcessingChannel channel,
+        ILogger<DatasetService> logger)
     {
         _repository = repository;
         _fileStorage = fileStorage;
+        _channel = channel;
+        _logger = logger;
     }
 
     public async Task<DatasetUploadResult> UploadAsync(IFormFile file, CancellationToken ct = default)
@@ -33,19 +43,23 @@ public class DatasetService : IDatasetService
         await using var stream = file.OpenReadStream();
         var storagePath = await _fileStorage.SaveAsync(dataset.Id, stream, file.FileName, ct);
 
-        // 3. Now we know the path — recreate with path included
-        var finalDataset = Dataset.Create(file.FileName, file.Length, storagePath);
+        // 3. Now we know the path — set it on the entity
+        dataset.SetStoragePath(storagePath);
 
         // 4. Persist to database
-        await _repository.AddAsync(finalDataset, ct);
+        await _repository.AddAsync(dataset, ct);
 
-        // 5. TODO in next step: enqueue for background processing
+        // 5. Enqueue for background processing
+        //    The background worker will pick this up and process the CSV
+        var enqueued = _channel.TryEnqueue(dataset.Id);
+        if (!enqueued)
+            _logger.LogWarning("Failed to enqueue dataset {DatasetId} for processing", dataset.Id);
 
         // 6. Return a DTO — not the raw entity
         return new DatasetUploadResult(
-            DatasetId: finalDataset.Id,
-            Status: finalDataset.Status.ToString(),
-            FileName: finalDataset.FileName
+            DatasetId: dataset.Id,
+            Status: dataset.Status.ToString(),
+            FileName: dataset.FileName
         );
     }
 
