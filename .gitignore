@@ -1,0 +1,56 @@
+# User-specific files
+*.rsuser
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# User-specific folders
+.vs/
+.vscode/
+.idea/
+
+# Build results
+[Dd]ebug/
+[Rr]elease/
+x64/
+x86/
+[Aa][Rr][Mm]/
+[Aa][Rr][Mm]64/
+build/
+[Bb]in/
+[Oo]bj/
+
+# .NET specific
+*.nupkg
+*.snupkg
+project.lock.json
+project.fragment.lock.json
+artifacts/
+
+# Windows
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
+desktop.ini
+$RECYCLE.BIN/
+*.cab
+*.msi
+*.msm
+*.msp
+*.lnk
+
+# Test results
+test-results/
+TestResults/
+coverage/
+*.trx
+*.coveragexml
+
+# Local config overrides (keep appsettings.json, ignore personal overrides)
+appsettings.Local.json
+appsettings.*.local.json
+
+# Storage folder if it ends up inside the repo
+ChartEngineStorage/

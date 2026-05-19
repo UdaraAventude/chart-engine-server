@@ -1,0 +1,11 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/ChartEngine.API/ChartEngine.API.csproj" />
+    <Project Path="src/ChartEngine.Application/ChartEngine.Application.csproj" />
+    <Project Path="src/ChartEngine.Domain/ChartEngine.Domain.csproj" />
+    <Project Path="src/ChartEngine.Infrastructure/ChartEngine.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/ChartEngine.Tests/ChartEngine.Tests.csproj" />
+  </Folder>
+</Solution>
