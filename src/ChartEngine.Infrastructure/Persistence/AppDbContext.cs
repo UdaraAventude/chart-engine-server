@@ -1,4 +1,4 @@
-﻿namespace ChartEngine.Infrastructure.Persistence;
+namespace ChartEngine.Infrastructure.Persistence;
 
 using ChartEngine.Domain.Entities;
 using ChartEngine.Domain.Enums;
@@ -56,7 +56,7 @@ public class AppDbContext : DbContext
         {
             entity.HasKey(c => c.DatasetId);  
 
-            entity.HasOne<Dataset>()
+            entity.HasOne(c => c.Dataset)
                   .WithOne()
                   .HasForeignKey<DatasetConfig>(c => c.DatasetId)
                   .OnDelete(DeleteBehavior.Cascade);

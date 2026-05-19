@@ -1,4 +1,4 @@
-﻿namespace ChartEngine.Infrastructure.Services;
+namespace ChartEngine.Infrastructure.Services;
 
 using ChartEngine.Application.Hubs;
 using ChartEngine.Application.Interfaces.Analytics;
@@ -170,23 +170,36 @@ public class DatasetPipelineService : IDatasetPipelineService
         ChartEngine.Domain.ValueObjects.DatasetSchema schema,
         CancellationToken ct)
     {
-        
-        
-        
-        
-        
+        int order = 0;
 
-        
-        
-        
+        var columns = new List<ChartEngine.Domain.Entities.DatasetColumn>();
+
+        // Dimensions
+        foreach (var dim in schema.Dimensions)
+            columns.Add(ChartEngine.Domain.Entities.DatasetColumn.AsDimension(datasetId, dim, cardinality: 0, order: order++));
+
+        // Metrics
+        foreach (var metric in schema.Metrics)
+            columns.Add(ChartEngine.Domain.Entities.DatasetColumn.AsMetric(datasetId, metric, order: order++));
+
+        // Rejected columns
+        foreach (var rejected in schema.Rejected)
+            columns.Add(ChartEngine.Domain.Entities.DatasetColumn.AsRejected(datasetId, rejected.Name, rejected.RejectionReason ?? "unknown", rejected.Cardinality, order: order++));
+
+        await _datasetRepository.SaveColumnsAsync(columns, ct);
+
+        // Persist the dynamic config (cardinality limits, depth, etc.)
+        var config = ChartEngine.Domain.Entities.DatasetConfig.Create(
+            datasetId,
+            schema.Config.MaxDimCardinality,
+            schema.Config.MaxHierarchyDepth,
+            schema.Config.FallbackTopValues);
+
+        await _datasetRepository.SaveConfigAsync(config, ct);
+
         _logger.LogInformation(
-            "Schema persisted for dataset {DatasetId}: {Dims} dims, {Metrics} metrics",
-            datasetId, schema.Dimensions.Count, schema.Metrics.Count);
-
-        
-        
-        
-        await Task.CompletedTask;
+            "Schema persisted for dataset {DatasetId}: {Dims} dims, {Metrics} metrics, {Rejected} rejected",
+            datasetId, schema.Dimensions.Count, schema.Metrics.Count, schema.Rejected.Count);
     }
 
     private async Task PushProgressAsync(Guid datasetId, int percent, string message, CancellationToken ct)

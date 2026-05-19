@@ -115,6 +115,28 @@
                     await connection.invoke("JoinDatasetGroup", result.datasetId);
                     appendLog(`Joined SignalR group for Dataset ID: ${result.datasetId}`);
                 }
+
+                // FALLBACK: The backend is so fast now it might finish before we join the SignalR group!
+                // Let's poll the status endpoint just in case we miss the real-time message.
+                const checkInterval = setInterval(async () => {
+                    try {
+                        const statusRes = await fetch(`${API_BASE}/api/v1/datasets/${result.datasetId}/status`);
+                        if (statusRes.ok) {
+                            const statusData = await statusRes.json();
+                            if (statusData.status === 'Ready') {
+                                clearInterval(checkInterval);
+                                appendLog(`[FALLBACK DETECTED] Dataset is already Ready!`);
+                                uploadStatus.textContent = `Processing Complete! (Finished before SignalR could connect)`;
+                            } else if (statusData.status === 'Failed') {
+                                clearInterval(checkInterval);
+                                appendLog(`[FAILED] Dataset processing failed.`, true);
+                            }
+                        }
+                    } catch (e) {
+                        // ignore poll errors
+                    }
+                }, 1000);
+
             } catch (err) {
                 uploadStatus.textContent = `Upload Error!`;
                 uploadStatus.style.color = 'red';
