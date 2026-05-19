@@ -22,6 +22,7 @@ public static class ServiceRegistrationExtensions
             options.UseSqlServer(configuration.GetConnectionString("Default")));
 
         services.AddScoped<IDatasetRepository, DatasetRepository>();
+        services.AddScoped<ITreeRepository, TreeRepository>();
         return services;
     }
 
@@ -44,6 +45,14 @@ public static class ServiceRegistrationExtensions
         // when the app starts and stops it cleanly when the app shuts down
         services.AddHostedService<DatasetProcessingWorker>();
 
+        return services;
+    }
+
+    public static IServiceCollection AddAnalyticsPipeline(
+        this IServiceCollection services)
+    {
+        services.AddSingleton<ChartEngine.Application.Interfaces.Analytics.ISchemaDetector, ChartEngine.Infrastructure.Analytics.SchemaDetector>();
+        services.AddSingleton<ChartEngine.Application.Interfaces.Analytics.ITreeBuilder, ChartEngine.Infrastructure.Analytics.TreeBuilder>();
         return services;
     }
 }

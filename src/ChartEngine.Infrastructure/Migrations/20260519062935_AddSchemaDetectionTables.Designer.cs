@@ -4,6 +4,7 @@ using ChartEngine.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace ChartEngine.Infrastructure.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260519062935_AddSchemaDetectionTables")]
+    partial class AddSchemaDetectionTables
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -21,30 +24,6 @@ namespace ChartEngine.Infrastructure.Migrations
                 .HasAnnotation("Relational:MaxIdentifierLength", 128);
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
-
-            modelBuilder.Entity("ChartEngine.Domain.Entities.AggregationTree", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<DateTime>("ComputedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<Guid>("DatasetId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<string>("TreeJson")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("DatasetId")
-                        .IsUnique();
-
-                    b.ToTable("AggregationTrees");
-                });
 
             modelBuilder.Entity("ChartEngine.Domain.Entities.Dataset", b =>
                 {
@@ -141,15 +120,6 @@ namespace ChartEngine.Infrastructure.Migrations
                     b.HasKey("DatasetId");
 
                     b.ToTable("DatasetConfigs");
-                });
-
-            modelBuilder.Entity("ChartEngine.Domain.Entities.AggregationTree", b =>
-                {
-                    b.HasOne("ChartEngine.Domain.Entities.Dataset", null)
-                        .WithOne()
-                        .HasForeignKey("ChartEngine.Domain.Entities.AggregationTree", "DatasetId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
                 });
 
             modelBuilder.Entity("ChartEngine.Domain.Entities.DatasetColumn", b =>
