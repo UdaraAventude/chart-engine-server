@@ -1,4 +1,4 @@
-﻿namespace ChartEngine.Infrastructure.Extensions;
+namespace ChartEngine.Infrastructure.Extensions;
 
 using ChartEngine.Application.Interfaces.Infrastructure;
 using ChartEngine.Application.Interfaces.Repositories;
@@ -31,6 +31,7 @@ public static class ServiceRegistrationExtensions
     {
         services.AddScoped<IDatasetService, DatasetService>();
         services.AddScoped<IDatasetPipelineService, DatasetPipelineService>();
+        services.AddScoped<IRowQueryService, RowQueryService>();
         services.AddSingleton<IFileStorage, LocalFileStorage>();
         return services;
     }
