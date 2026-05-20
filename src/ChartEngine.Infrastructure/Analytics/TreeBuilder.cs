@@ -100,9 +100,10 @@ public class TreeBuilder : ITreeBuilder
         DatasetSchema schema)
     {
         var currentNode = root;
+        int depthLimit = Math.Min(dimValues.Length, schema.Config.MaxHierarchyDepth);
 
-        // Walk down the tree using pre-resolved dimension values (no dictionary lookup)
-        for (int i = 0; i < dimValues.Length; i++)
+        // Walk down the tree up to the configured MaxHierarchyDepth
+        for (int i = 0; i < depthLimit; i++)
         {
             var value = dimValues[i];
 

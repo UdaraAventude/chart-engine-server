@@ -91,5 +91,30 @@ public class DatasetsController : ControllerBase
             return NotFound(new { error = $"Dataset {datasetId} not found." });
         }
     }
+
+    [HttpGet("{datasetId:guid}/drill")]
+    public async Task<IActionResult> GetDrillDownAsync(
+        Guid datasetId,
+        [FromQuery] string[]? path,
+        CancellationToken ct)
+    {
+        try
+        {
+            var branch = await _datasetService.GetDrillDownAsync(datasetId, path, ct);
+            if (branch is null)
+            {
+                return NotFound(new { error = "Path not found or dataset not ready." });
+            }
+            return Ok(branch);
+        }
+        catch (ChartEngine.Domain.Exceptions.DatasetNotFoundException)
+        {
+            return NotFound(new { error = $"Dataset {datasetId} not found." });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
+    }
 }
 
