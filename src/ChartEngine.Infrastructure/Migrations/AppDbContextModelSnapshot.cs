@@ -163,8 +163,8 @@ namespace ChartEngine.Infrastructure.Migrations
 
             modelBuilder.Entity("ChartEngine.Domain.Entities.DatasetConfig", b =>
                 {
-                    b.HasOne("ChartEngine.Domain.Entities.Dataset", null)
-                        .WithOne()
+                    b.HasOne("ChartEngine.Domain.Entities.Dataset", "Dataset")
+                        .WithOne("Config")
                         .HasForeignKey("ChartEngine.Domain.Entities.DatasetConfig", "DatasetId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();

@@ -9,8 +9,7 @@ namespace ChartEngine.Domain.Entities
 		public int MaxHierarchyDepth { get; private set; }
 		public int FallbackTopValues { get; private set; }
 
-		// Navigation
-		public Dataset? Dataset { get; private set; }
+		public Dataset Dataset { get; private set; } = null!;
 
 		private DatasetConfig() { }
 

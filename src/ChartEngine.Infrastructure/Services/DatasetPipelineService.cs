@@ -19,6 +19,7 @@ public class DatasetPipelineService : IDatasetPipelineService
     private readonly IFileStorage _fileStorage;
     private readonly IHubContext<DatasetHub> _hub;
     private readonly ILogger<DatasetPipelineService> _logger;
+    private readonly ChartEngine.Infrastructure.Persistence.AppDbContext _dbContext;
 
     
     
@@ -31,7 +32,8 @@ public class DatasetPipelineService : IDatasetPipelineService
         ITreeBuilder treeBuilder,
         IFileStorage fileStorage,
         IHubContext<DatasetHub> hub,
-        ILogger<DatasetPipelineService> logger)
+        ILogger<DatasetPipelineService> logger,
+        ChartEngine.Infrastructure.Persistence.AppDbContext dbContext)
     {
         _datasetRepository = datasetRepository;
         _treeRepository = treeRepository;
@@ -40,6 +42,7 @@ public class DatasetPipelineService : IDatasetPipelineService
         _fileStorage = fileStorage;
         _hub = hub;
         _logger = logger;
+        _dbContext = dbContext;
     }
 
     public async Task ProcessAsync(Guid datasetId, CancellationToken ct = default)

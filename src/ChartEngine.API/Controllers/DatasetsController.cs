@@ -1,6 +1,7 @@
 namespace ChartEngine.API.Controllers;
 
 using ChartEngine.Application.Interfaces.Services;
+using ChartEngine.Domain.Exceptions;
 using Microsoft.AspNetCore.Mvc;
 
 [ApiController]
@@ -8,12 +9,32 @@ using Microsoft.AspNetCore.Mvc;
 public class DatasetsController : ControllerBase
 {
     private readonly IDatasetService _datasetService;
+    private readonly IAnalyticsService _analyticsService;
+    private readonly ChartEngine.Application.Interfaces.Infrastructure.IFileStorage? _fileStorage;
 
     
     
-    public DatasetsController(IDatasetService datasetService)
+    public DatasetsController(IDatasetService datasetService, IAnalyticsService analyticsService, ChartEngine.Application.Interfaces.Infrastructure.IFileStorage? fileStorage = null)
     {
         _datasetService = datasetService;
+        _analyticsService = analyticsService;
+        _fileStorage = fileStorage;
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> ListAsync(
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 20,
+        [FromQuery] string? search = null,
+        [FromQuery] string sortBy = "createdAt",
+        CancellationToken ct = default)
+    {
+        if (page <= 0) page = 1;
+        if (pageSize <= 0) pageSize = 20;
+
+        var (totalCount, items) = await _datasetService.ListAsync(page, pageSize, search, sortBy, ct);
+
+        return Ok(new { page, pageSize, totalCount, items });
     }
 
     [HttpPost("upload")]

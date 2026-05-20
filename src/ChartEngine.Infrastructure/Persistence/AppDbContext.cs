@@ -54,7 +54,7 @@ public class AppDbContext : DbContext
 
         modelBuilder.Entity<DatasetConfig>(entity =>
         {
-            entity.HasKey(c => c.DatasetId);  
+            entity.HasKey(c => c.DatasetId);
 
             entity.HasOne(c => c.Dataset)
                   .WithOne()

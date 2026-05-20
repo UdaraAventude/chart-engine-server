@@ -14,6 +14,8 @@ namespace ChartEngine.Domain.Entities
         public DateTime CreatedAt { get; private set; } = DateTime.UtcNow;
         public DateTime? ProcessedAt { get; private set; }
 
+        public DatasetConfig? Config { get; private set; }
+
         private Dataset() { }
 
         public static Dataset Create(string fileName, long fileSizeBytes, string storagePath)

@@ -1,5 +1,6 @@
 namespace ChartEngine.Application.Interfaces.Repositories;
 
+using ChartEngine.Application.DTOs;
 using ChartEngine.Domain.Entities;
 
 public interface IDatasetRepository

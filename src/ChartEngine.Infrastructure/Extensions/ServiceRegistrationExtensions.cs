@@ -30,6 +30,7 @@ public static class ServiceRegistrationExtensions
         this IServiceCollection services)
     {
         services.AddScoped<IDatasetService, DatasetService>();
+        services.AddScoped<IAnalyticsService, AnalyticsService>();
         services.AddScoped<IDatasetPipelineService, DatasetPipelineService>();
         services.AddSingleton<IFileStorage, LocalFileStorage>();
         return services;

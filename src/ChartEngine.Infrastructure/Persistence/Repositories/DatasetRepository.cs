@@ -1,5 +1,6 @@
 namespace ChartEngine.Infrastructure.Persistence.Repositories;
 
+using ChartEngine.Application.DTOs;
 using ChartEngine.Application.Interfaces.Repositories;
 using ChartEngine.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
