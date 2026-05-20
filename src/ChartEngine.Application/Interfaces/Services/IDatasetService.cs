@@ -10,4 +10,11 @@ public interface IDatasetService
     Task<string?> GetTreeJsonAsync(Guid datasetId, CancellationToken ct = default);
     Task<DatasetSchemaDto> GetSchemaAsync(Guid datasetId, CancellationToken ct = default);
     Task<object?> GetDrillDownAsync(Guid datasetId, string[]? path, CancellationToken ct = default);
+    Task<PagedListDto<DatasetListDto>> GetPagedDatasetsAsync(
+        int page,
+        int pageSize,
+        string? sortBy,
+        string? search,
+        CancellationToken ct = default);
+    Task DeleteAsync(Guid datasetId, CancellationToken ct = default);
 }

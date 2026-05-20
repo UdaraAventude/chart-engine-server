@@ -116,5 +116,37 @@ public class DatasetsController : ControllerBase
             return BadRequest(new { error = ex.Message });
         }
     }
+
+    [HttpGet]
+    public async Task<IActionResult> GetPagedAsync(
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 10,
+        [FromQuery] string? sortBy = "createdAt",
+        [FromQuery] string? search = null,
+        CancellationToken ct = default)
+    {
+        if (page < 1) page = 1;
+        if (pageSize < 1) pageSize = 10;
+        if (pageSize > 100) pageSize = 100; // Limit max page size
+
+        var result = await _datasetService.GetPagedDatasetsAsync(page, pageSize, sortBy, search, ct);
+        return Ok(result);
+    }
+
+    [HttpDelete("{datasetId:guid}")]
+    public async Task<IActionResult> DeleteAsync(
+        Guid datasetId,
+        CancellationToken ct)
+    {
+        try
+        {
+            await _datasetService.DeleteAsync(datasetId, ct);
+            return NoContent();
+        }
+        catch (ChartEngine.Domain.Exceptions.DatasetNotFoundException)
+        {
+            return NotFound(new { error = $"Dataset {datasetId} not found." });
+        }
+    }
 }
 

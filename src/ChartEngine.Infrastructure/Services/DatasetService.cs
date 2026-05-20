@@ -202,5 +202,36 @@ public class DatasetService : IDatasetService
             children = childrenList
         };
     }
+
+    public async Task<PagedListDto<DatasetListDto>> GetPagedDatasetsAsync(
+        int page,
+        int pageSize,
+        string? sortBy,
+        string? search,
+        CancellationToken ct = default)
+    {
+        return await _repository.GetPagedDatasetsAsync(page, pageSize, sortBy, search, ct);
+    }
+
+    public async Task DeleteAsync(Guid datasetId, CancellationToken ct = default)
+    {
+        var dataset = await _repository.GetByIdAsync(datasetId, ct);
+        if (dataset is null)
+            throw new DatasetNotFoundException(datasetId);
+
+        if (!string.IsNullOrEmpty(dataset.StoragePath))
+        {
+            try
+            {
+                await _fileStorage.DeleteAsync(dataset.StoragePath, ct);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to delete storage file at {StoragePath} for dataset {DatasetId}", dataset.StoragePath, datasetId);
+            }
+        }
+
+        await _repository.DeleteAsync(dataset, ct);
+    }
 }
 
