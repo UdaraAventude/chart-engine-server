@@ -12,6 +12,7 @@ public class AppDbContext : DbContext
     public DbSet<DatasetColumn> DatasetColumns => Set<DatasetColumn>();
     public DbSet<DatasetConfig> DatasetConfigs => Set<DatasetConfig>();
     public DbSet<AggregationTree> AggregationTrees => Set<AggregationTree>();
+    public DbSet<ExportJob> ExportJobs => Set<ExportJob>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -73,6 +74,21 @@ public class AppDbContext : DbContext
             entity.HasOne<Dataset>()
                   .WithOne()
                   .HasForeignKey<AggregationTree>(t => t.DatasetId)
+                  .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<ExportJob>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Format).IsRequired().HasMaxLength(20);
+            entity.Property(e => e.Status).IsRequired().HasMaxLength(20);
+            entity.Property(e => e.DrillPath).HasMaxLength(4000);
+            entity.Property(e => e.DownloadPath).HasMaxLength(1024);
+            entity.Property(e => e.ErrorMessage).HasMaxLength(4000);
+
+            entity.HasOne<Dataset>()
+                  .WithMany()
+                  .HasForeignKey(e => e.DatasetId)
                   .OnDelete(DeleteBehavior.Cascade);
         });
     }

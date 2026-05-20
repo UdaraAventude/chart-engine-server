@@ -23,6 +23,7 @@ public static class ServiceRegistrationExtensions
 
         services.AddScoped<IDatasetRepository, DatasetRepository>();
         services.AddScoped<ITreeRepository, TreeRepository>();
+        services.AddScoped<IExportRepository, ExportRepository>();
         return services;
     }
 
@@ -32,6 +33,7 @@ public static class ServiceRegistrationExtensions
         services.AddScoped<IDatasetService, DatasetService>();
         services.AddScoped<IDatasetPipelineService, DatasetPipelineService>();
         services.AddScoped<IRowQueryService, RowQueryService>();
+        services.AddScoped<IExportService, ExportService>();
         services.AddSingleton<IFileStorage, LocalFileStorage>();
         return services;
     }
@@ -41,10 +43,12 @@ public static class ServiceRegistrationExtensions
     {
         
         services.AddSingleton<DatasetProcessingChannel>();
+        services.AddSingleton<ExportProcessingChannel>();
 
         
         
         services.AddHostedService<DatasetProcessingWorker>();
+        services.AddHostedService<ExportProcessingWorker>();
 
         return services;
     }
