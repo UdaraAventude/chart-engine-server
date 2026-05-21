@@ -4,8 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Chart Engine Test Client</title>
-    <!-- Load SignalR -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/8.0.0/signalr.min.js"></script>
     <style>
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; padding: 2rem; max-width: 800px; margin: 0 auto; background: #f8f9fa; }
         .card { background: white; padding: 2rem; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin-bottom: 2rem; }
@@ -21,7 +19,7 @@
 
     <div class="card">
         <h1>Chart Engine Data Pipeline Test</h1>
-        <p>Use this tool to upload your 1M+ row datasets directly to the backend and monitor the live progress.</p>
+        <p>Use this tool to upload your 1M+ row datasets directly to the backend and monitor the live progress via <strong>Server-Sent Events (SSE)</strong>.</p>
         
         <input type="file" id="fileInput" accept=".csv" />
         <button id="uploadBtn" class="btn">Upload Dataset</button>
@@ -30,15 +28,14 @@
     </div>
 
     <div class="card">
-        <h2>Live Processing Logs (SignalR)</h2>
+        <h2>Live Processing Logs (SSE Stream)</h2>
         <div id="logOutput" class="log-container">
-            <div>Waiting to connect...</div>
+            <div>Ready to stream logs...</div>
         </div>
     </div>
 
     <script>
         const API_BASE = "http://localhost:5110";
-        let connection = null;
 
         const fileInput = document.getElementById('fileInput');
         const uploadBtn = document.getElementById('uploadBtn');
@@ -53,32 +50,46 @@
             logOutput.scrollTop = logOutput.scrollHeight;
         }
 
-        async function setupSignalR() {
-            connection = new signalR.HubConnectionBuilder()
-                .withUrl(`${API_BASE}/hubs/dataset`)
-                .withAutomaticReconnect()
-                .build();
+        async function processStream(response) {
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder("utf-8");
+            let buffer = "";
 
-            connection.on("DatasetProgress", data => {
-                appendLog(`[PROGRESS] ${data.percent}% - ${data.message}`);
-            });
-
-            connection.on("DatasetReady", data => {
-                appendLog(`[SUCCESS] Dataset ${data.datasetId} processed successfully!`);
-                appendLog(`Total Rows: ${data.totalRows}`);
-                appendLog(`Dimensions: ${data.dimensions.join(", ")}`);
-                appendLog(`Metrics: ${data.metrics.join(", ")}`);
-            });
-
-            connection.on("DatasetFailed", data => {
-                appendLog(`[FAILED] Dataset ${data.datasetId} failed: ${data.error}`, true);
-            });
-
-            try {
-                await connection.start();
-                appendLog("Connected to real-time logs.");
-            } catch (err) {
-                appendLog("Failed to connect to SignalR: " + err.toString(), true);
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+                
+                buffer += decoder.decode(value, { stream: true });
+                
+                // Parse lines
+                const lines = buffer.split('\n');
+                buffer = lines.pop(); // Keep the last incomplete line in buffer
+                
+                for (let line of lines) {
+                    if (line.startsWith('data: ')) {
+                        const jsonStr = line.substring(6).trim();
+                        if (!jsonStr) continue;
+                        
+                        try {
+                            const data = JSON.parse(jsonStr);
+                            
+                            // Check for completion response
+                            if (data.datasetId) {
+                                appendLog(`[SUCCESS] Dataset ${data.datasetId} processed successfully!`);
+                                appendLog(`Total Rows: ${data.totalRows}`);
+                                appendLog(`Dimensions: ${data.dimensions}`);
+                                appendLog(`Metrics: ${data.metrics}`);
+                                uploadStatus.textContent = "Upload and Processing Complete!";
+                            } 
+                            // Otherwise it's a progress event
+                            else if (data.percent !== undefined) {
+                                appendLog(`[PROGRESS] ${data.percent}% - ${data.message}`);
+                            }
+                        } catch (e) {
+                            console.error("Failed to parse chunk", jsonStr, e);
+                        }
+                    }
+                }
             }
         }
 
@@ -92,12 +103,14 @@
             uploadBtn.disabled = true;
             uploadStatus.textContent = `Uploading ${file.name} (${(file.size / 1024 / 1024).toFixed(2)} MB)...`;
             appendLog(`Starting upload for ${file.name}...`);
+            appendLog(`Establishing SSE connection...`);
 
             const formData = new FormData();
             formData.append('file', file);
 
             try {
-                const response = await fetch(`${API_BASE}/api/v1/datasets/upload`, {
+                // We use fetch instead of EventSource because we need to send a POST with FormData
+                const response = await fetch(`${API_BASE}/api/v1/documents/upload`, {
                     method: 'POST',
                     body: formData
                 });
@@ -106,36 +119,8 @@
                     throw new Error(`Upload failed with status ${response.status}`);
                 }
 
-                const result = await response.json();
-                uploadStatus.textContent = `Upload complete! Backend processing started.`;
-                appendLog(`Received Dataset ID: ${result.datasetId}`);
-
-                // Join the SignalR group to get updates
-                if (connection && connection.state === signalR.HubConnectionState.Connected) {
-                    await connection.invoke("JoinDatasetGroup", result.datasetId);
-                    appendLog(`Joined SignalR group for Dataset ID: ${result.datasetId}`);
-                }
-
-                // FALLBACK: The backend is so fast now it might finish before we join the SignalR group!
-                // Let's poll the status endpoint just in case we miss the real-time message.
-                const checkInterval = setInterval(async () => {
-                    try {
-                        const statusRes = await fetch(`${API_BASE}/api/v1/datasets/${result.datasetId}/status`);
-                        if (statusRes.ok) {
-                            const statusData = await statusRes.json();
-                            if (statusData.status === 'Ready') {
-                                clearInterval(checkInterval);
-                                appendLog(`[FALLBACK DETECTED] Dataset is already Ready!`);
-                                uploadStatus.textContent = `Processing Complete! (Finished before SignalR could connect)`;
-                            } else if (statusData.status === 'Failed') {
-                                clearInterval(checkInterval);
-                                appendLog(`[FAILED] Dataset processing failed.`, true);
-                            }
-                        }
-                    } catch (e) {
-                        // ignore poll errors
-                    }
-                }, 1000);
+                // Process the Server-Sent Events stream from the response body
+                await processStream(response);
 
             } catch (err) {
                 uploadStatus.textContent = `Upload Error!`;
@@ -145,9 +130,6 @@
                 uploadBtn.disabled = false;
             }
         });
-
-        // Initialize SignalR on page load
-        setupSignalR();
     </script>
 </body>
 </html>

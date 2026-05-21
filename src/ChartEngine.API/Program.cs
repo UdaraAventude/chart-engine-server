@@ -29,6 +29,7 @@ builder.Services.AddCors(options =>
 
 builder.Services.AddPersistence(builder.Configuration);
 builder.Services.AddApplicationServices();
+builder.Services.AddBackgroundPipeline();
 builder.Services.AddAnalyticsPipeline();
 builder.Services.AddVisualizationServices();
 builder.Services.AddControllers()

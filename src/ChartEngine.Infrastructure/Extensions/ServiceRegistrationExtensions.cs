@@ -32,7 +32,16 @@ public static class ServiceRegistrationExtensions
     public static IServiceCollection AddApplicationServices(
         this IServiceCollection services)
     {
+        services.AddScoped<IExportService, ExportService>();
         services.AddSingleton<IFileStorage, LocalFileStorage>();
+        return services;
+    }
+
+    public static IServiceCollection AddBackgroundPipeline(
+        this IServiceCollection services)
+    {
+        services.AddSingleton<ChartEngine.Infrastructure.BackgroundJobs.ExportProcessingChannel>();
+        services.AddHostedService<ChartEngine.Infrastructure.BackgroundJobs.ExportProcessingWorker>();
         return services;
     }
 
