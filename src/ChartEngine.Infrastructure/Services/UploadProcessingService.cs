@@ -96,6 +96,12 @@ public class UploadProcessingService : IUploadProcessingService
         await _datasetRepository.UpdateAsync(dataset);
         await onProgressAsync(100); // Done
 
-        return new UploadCompletedResult(dataset.Id, treeResult.TotalRows, dimensions, metrics);
+        return new UploadCompletedResult(
+            dataset.Id,
+            treeResult.TotalRows,
+            dimensions,
+            metrics,
+            schema.Dimensions,
+            schema.Metrics);
     }
 }
