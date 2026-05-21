@@ -1,5 +1,6 @@
 namespace ChartEngine.Infrastructure.Persistence.Repositories;
 
+using ChartEngine.Application.DTOs;
 using ChartEngine.Application.Interfaces.Repositories;
 using ChartEngine.Domain.Entities;
 using ChartEngine.Domain.ValueObjects;
@@ -82,6 +83,52 @@ public class TreeRepository : ITreeRepository
             return null;
 
         return Decompress(tree.TreeJson);
+    }
+
+    public async Task<TreeEnvelopeMetadata?> GetEnvelopeMetadataAsync(Guid datasetId, CancellationToken ct = default)
+    {
+        var json = await GetTreeJsonAsync(datasetId, ct);
+        if (string.IsNullOrEmpty(json))
+            return null;
+
+        using var doc = JsonDocument.Parse(json);
+        var root = doc.RootElement;
+
+        var dimensions = ReadStringArray(root, "dimensions");
+        var metrics = ReadStringArray(root, "metrics");
+        var rejected = ReadRejected(root);
+        var totalRows = root.TryGetProperty("totalRows", out var tr) ? tr.GetInt32() : 0;
+
+        return new TreeEnvelopeMetadata(dimensions, metrics, rejected, totalRows);
+    }
+
+    private static List<string> ReadStringArray(JsonElement root, string propertyName)
+    {
+        if (!root.TryGetProperty(propertyName, out var arr) || arr.ValueKind != JsonValueKind.Array)
+            return new List<string>();
+
+        return arr.EnumerateArray()
+            .Select(e => e.GetString() ?? string.Empty)
+            .Where(s => !string.IsNullOrEmpty(s))
+            .ToList();
+    }
+
+    private static List<RejectedColumnDto> ReadRejected(JsonElement root)
+    {
+        if (!root.TryGetProperty("rejected", out var arr) || arr.ValueKind != JsonValueKind.Array)
+            return new List<RejectedColumnDto>();
+
+        var list = new List<RejectedColumnDto>();
+        foreach (var item in arr.EnumerateArray())
+        {
+            var key = item.TryGetProperty("key", out var k) ? k.GetString() ?? "" : "";
+            var reason = item.TryGetProperty("reason", out var r) ? r.GetString() ?? "" : "";
+            var cardinality = item.TryGetProperty("cardinality", out var c) ? c.GetInt32() : 0;
+            if (!string.IsNullOrEmpty(key))
+                list.Add(new RejectedColumnDto(key, reason, cardinality));
+        }
+
+        return list;
     }
 
     private static string Decompress(string compressedText)

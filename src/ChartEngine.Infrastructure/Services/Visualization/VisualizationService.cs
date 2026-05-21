@@ -2,8 +2,8 @@ using System.Text.Json;
 using ChartEngine.Application.DTOs;
 using ChartEngine.Application.Interfaces.Repositories;
 using ChartEngine.Application.Interfaces.Services;
-using ChartEngine.Domain.Entities;
 using ChartEngine.Domain.ValueObjects;
+using ChartEngine.Infrastructure.Analytics;
 
 namespace ChartEngine.Infrastructure.Services.Visualization;
 
@@ -18,7 +18,12 @@ public class VisualizationService : IVisualizationService
         _registry = registry;
     }
 
-    public async Task<ChartVisualizationDto> GetVisualizationAsync(Guid datasetId, string chartType, int drillDown, string aggregation)
+    public async Task<ChartVisualizationDto> GetVisualizationAsync(
+        Guid datasetId,
+        string chartType,
+        int drillDown,
+        string aggregation,
+        string? drillPathJson = null)
     {
         var jsonTree = await _treeRepository.GetTreeJsonAsync(datasetId);
         if (string.IsNullOrEmpty(jsonTree))
@@ -26,42 +31,35 @@ public class VisualizationService : IVisualizationService
 
         var treeOptions = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
 
-        // The repository persists a wrapper envelope: { tree, dimensions, metrics, rejected, totalRows }.
-        // Extract the nested "tree" element before deserializing as TreeNode.
         TreeNode? rootNode;
+        string groupedBy = aggregation;
         using (var doc = JsonDocument.Parse(jsonTree))
         {
             var root = doc.RootElement;
             var treeElement = root.TryGetProperty("tree", out var t) ? t : root;
             rootNode = JsonSerializer.Deserialize<TreeNode>(treeElement.GetRawText(), treeOptions);
+
+            if (root.TryGetProperty("dimensions", out var dims) && dims.ValueKind == JsonValueKind.Array)
+            {
+                var dimList = dims.EnumerateArray().Select(e => e.GetString() ?? "").ToList();
+                var pathSteps = TreeNavigator.ParseDrillPathJson(drillPathJson);
+                var depth = pathSteps.Count > 0 ? pathSteps.Count : drillDown;
+                if (depth < dimList.Count)
+                    groupedBy = dimList[depth];
+            }
         }
 
         if (rootNode == null)
             throw new InvalidOperationException("Failed to deserialize tree data.");
 
-        // Navigate to drillDown level
-        var targetNode = NavigateToLevel(rootNode, drillDown);
+        var path = TreeNavigator.ParseDrillPathJson(drillPathJson);
+        var targetNode = path.Count > 0
+            ? TreeNavigator.NavigateToPath(rootNode, path)
+            : TreeNavigator.NavigateToLevel(rootNode, drillDown);
 
+        var effectiveLevel = path.Count > 0 ? path.Count : drillDown;
         var formatter = _registry.GetFormatter(chartType);
-        
-        return formatter.Format(targetNode, drillDown, aggregation);
-    }
 
-    private TreeNode NavigateToLevel(TreeNode current, int targetLevel)
-    {
-        if (targetLevel <= 0 || current.Children == null || !current.Children.Any())
-            return current;
-
-        // Naive depth traversal for demo purposes
-        var node = current;
-        for (int i = 0; i < targetLevel; i++)
-        {
-            if (node.Children != null && node.Children.Any())
-                node = node.Children.First();
-            else
-                break;
-        }
-
-        return node;
+        return formatter.Format(targetNode, effectiveLevel, groupedBy);
     }
 }
