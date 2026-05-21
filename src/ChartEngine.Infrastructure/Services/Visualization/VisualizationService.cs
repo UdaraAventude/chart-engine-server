@@ -25,8 +25,17 @@ public class VisualizationService : IVisualizationService
             throw new KeyNotFoundException($"Tree for dataset {datasetId} not found.");
 
         var treeOptions = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-        var rootNode = JsonSerializer.Deserialize<TreeNode>(jsonTree, treeOptions);
-        
+
+        // The repository persists a wrapper envelope: { tree, dimensions, metrics, rejected, totalRows }.
+        // Extract the nested "tree" element before deserializing as TreeNode.
+        TreeNode? rootNode;
+        using (var doc = JsonDocument.Parse(jsonTree))
+        {
+            var root = doc.RootElement;
+            var treeElement = root.TryGetProperty("tree", out var t) ? t : root;
+            rootNode = JsonSerializer.Deserialize<TreeNode>(treeElement.GetRawText(), treeOptions);
+        }
+
         if (rootNode == null)
             throw new InvalidOperationException("Failed to deserialize tree data.");
 
