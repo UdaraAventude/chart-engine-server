@@ -33,6 +33,7 @@ public static class ServiceRegistrationExtensions
         this IServiceCollection services)
     {
         services.AddScoped<IExportService, ExportService>();
+        services.AddScoped<ISampleRowsService, CsvSampleRowsService>();
         services.AddSingleton<IFileStorage, LocalFileStorage>();
         return services;
     }

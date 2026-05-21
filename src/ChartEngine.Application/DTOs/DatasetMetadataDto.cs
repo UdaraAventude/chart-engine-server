@@ -9,12 +9,14 @@ public record DatasetMetadataDto(
     int TotalRows,
     IReadOnlyList<string> Dimensions,
     IReadOnlyList<string> Metrics,
-    IReadOnlyList<RejectedColumnDto> Rejected
+    IReadOnlyList<RejectedColumnDto> Rejected,
+    int MaxHierarchyDepth
 );
 
 public record TreeEnvelopeMetadata(
     IReadOnlyList<string> Dimensions,
     IReadOnlyList<string> Metrics,
     IReadOnlyList<RejectedColumnDto> Rejected,
-    int TotalRows
+    int TotalRows,
+    int MaxHierarchyDepth
 );

@@ -13,17 +13,20 @@ public class DocumentsController : ControllerBase
     private readonly IVisualizationService _visualizationService;
     private readonly ChartEngine.Application.Interfaces.Repositories.IDatasetRepository _datasetRepository;
     private readonly ChartEngine.Application.Interfaces.Repositories.ITreeRepository _treeRepository;
+    private readonly ChartEngine.Application.Interfaces.Services.ISampleRowsService _sampleRowsService;
 
     public DocumentsController(
         IUploadProcessingService uploadService, 
         IVisualizationService visualizationService,
         ChartEngine.Application.Interfaces.Repositories.IDatasetRepository datasetRepository,
-        ChartEngine.Application.Interfaces.Repositories.ITreeRepository treeRepository)
+        ChartEngine.Application.Interfaces.Repositories.ITreeRepository treeRepository,
+        ChartEngine.Application.Interfaces.Services.ISampleRowsService sampleRowsService)
     {
         _uploadService = uploadService;
         _visualizationService = visualizationService;
         _datasetRepository = datasetRepository;
         _treeRepository = treeRepository;
+        _sampleRowsService = sampleRowsService;
     }
 
     [HttpGet]
@@ -66,6 +69,15 @@ public class DocumentsController : ControllerBase
         if (envelope == null)
             return NotFound(new { error = $"Metadata for dataset {id} not found." });
 
+        var config = await _datasetRepository.GetConfigAsync(id, ct);
+        var maxHierarchyDepth = envelope.MaxHierarchyDepth;
+        if (maxHierarchyDepth <= 0 || maxHierarchyDepth > envelope.Dimensions.Count)
+            maxHierarchyDepth = config?.MaxHierarchyDepth ?? envelope.MaxHierarchyDepth;
+        if (maxHierarchyDepth <= 0)
+            maxHierarchyDepth = Math.Min(
+                envelope.Dimensions.Count,
+                envelope.TotalRows > 1_000_000 ? 4 : envelope.Dimensions.Count);
+
         var dto = new ChartEngine.Application.DTOs.DatasetMetadataDto(
             dataset.Id,
             dataset.FileName,
@@ -73,9 +85,21 @@ public class DocumentsController : ControllerBase
             dataset.TotalRows > 0 ? dataset.TotalRows : envelope.TotalRows,
             envelope.Dimensions,
             envelope.Metrics,
-            envelope.Rejected);
+            envelope.Rejected,
+            maxHierarchyDepth);
 
         return Ok(dto);
+    }
+
+    [HttpGet("{id:guid}/sample-rows")]
+    public async Task<IActionResult> GetSampleRows(
+        Guid id,
+        [FromQuery] int limit = 5000,
+        [FromQuery] string? drillPath = null,
+        CancellationToken ct = default)
+    {
+        var result = await _sampleRowsService.GetSampleRowsAsync(id, drillPath, limit, ct);
+        return Ok(result);
     }
 
     [HttpGet("visual")]

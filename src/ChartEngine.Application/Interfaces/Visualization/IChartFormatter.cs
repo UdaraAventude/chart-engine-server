@@ -8,5 +8,5 @@ public interface IChartFormatter
 {
     string ChartType { get; }
     
-    ChartVisualizationDto Format(TreeNode node, int level, string groupBy);
+    ChartVisualizationDto Format(TreeNode node, int level, string groupBy, string aggregation);
 }

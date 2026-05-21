@@ -1,7 +1,8 @@
 using ChartEngine.Application.DTOs;
 using ChartEngine.Application.Interfaces.Visualization;
-using ChartEngine.Domain.Entities;
 using ChartEngine.Domain.ValueObjects;
+
+using ChartEngine.Infrastructure.Services.Visualization;
 
 namespace ChartEngine.Infrastructure.Services.Visualization.Formatters;
 
@@ -9,33 +10,26 @@ public class PieChartFormatter : IChartFormatter
 {
     public string ChartType => "pie";
 
-    public ChartVisualizationDto Format(TreeNode node, int level, string groupBy)
+    public ChartVisualizationDto Format(TreeNode node, int level, string groupBy, string aggregation)
     {
-        var data = new List<object>();
-
-        if (node.Children != null)
+        var series = ChartNodeDataHelper.BuildStandardSeries(node, aggregation);
+        var data = series.Select(item =>
         {
-            foreach (var childKvp in node.Children)
+            dynamic d = item;
+            return new
             {
-                data.Add(new
-                {
-                    id = childKvp.Name,
-                    label = childKvp.Name,
-                    value = childKvp.Count
-                });
-            }
-        }
+                id = (string)d.name,
+                label = (string)d.name,
+                name = (string)d.name,
+                value = (double)d.value,
+            };
+        }).Cast<object>().ToList();
 
         return new ChartVisualizationDto
         {
             ChartType = ChartType,
             Data = data,
-            Meta = new VisualizationMetaDto
-            {
-                Level = level,
-                NodesCount = node.Children?.Count ?? 0,
-                GroupedBy = groupBy
-            }
+            Meta = VisualizationMetaBuilder.Build(node, level, groupBy),
         };
     }
 }

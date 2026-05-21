@@ -1,7 +1,8 @@
 using ChartEngine.Application.DTOs;
 using ChartEngine.Application.Interfaces.Visualization;
-using ChartEngine.Domain.Entities;
 using ChartEngine.Domain.ValueObjects;
+
+using ChartEngine.Infrastructure.Services.Visualization;
 
 namespace ChartEngine.Infrastructure.Services.Visualization.Formatters;
 
@@ -9,43 +10,34 @@ public class LineChartFormatter : IChartFormatter
 {
     public string ChartType => "line";
 
-    public ChartVisualizationDto Format(TreeNode node, int level, string groupBy)
+    public ChartVisualizationDto Format(TreeNode node, int level, string groupBy, string aggregation)
     {
-        // Line chart expects an array of series: [{ id: "Series 1", data: [{ x: "Jan", y: 10 }] }]
-        
-        var points = new List<object>();
-
-        if (node.Children != null)
+        var series = ChartNodeDataHelper.BuildStandardSeries(node, aggregation);
+        var points = series.Select(item =>
         {
-            foreach (var childKvp in node.Children)
+            dynamic d = item;
+            return new
             {
-                points.Add(new
-                {
-                    x = childKvp.Name,
-                    y = childKvp.Count
-                });
-            }
-        }
+                x = (string)d.name,
+                y = (double)d.value,
+                count = (int)d.count,
+            };
+        }).Cast<object>().ToList();
 
         var data = new List<object>
         {
             new
             {
                 id = groupBy == "default" ? "Total Count" : groupBy,
-                data = points
-            }
+                data = points,
+            },
         };
 
         return new ChartVisualizationDto
         {
             ChartType = ChartType,
             Data = data,
-            Meta = new VisualizationMetaDto
-            {
-                Level = level,
-                NodesCount = node.Children?.Count ?? 0,
-                GroupedBy = groupBy
-            }
+            Meta = VisualizationMetaBuilder.Build(node, level, groupBy),
         };
     }
 }

@@ -4,6 +4,7 @@ using ChartEngine.Application.DTOs;
 using ChartEngine.Application.Interfaces.Repositories;
 using ChartEngine.Domain.Entities;
 using ChartEngine.Domain.ValueObjects;
+using ChartEngine.Infrastructure.Analytics;
 using Microsoft.EntityFrameworkCore;
 using System;
 using System.IO;
@@ -42,6 +43,7 @@ public class TreeRepository : ITreeRepository
             tree = root,
             dimensions = schema.Dimensions,
             metrics = schema.Metrics,
+            maxHierarchyDepth = schema.Config.MaxHierarchyDepth,
             rejected = schema.Rejected.Select(r => new
             {
                 key = r.Name,
@@ -99,7 +101,22 @@ public class TreeRepository : ITreeRepository
         var rejected = ReadRejected(root);
         var totalRows = root.TryGetProperty("totalRows", out var tr) ? tr.GetInt32() : 0;
 
-        return new TreeEnvelopeMetadata(dimensions, metrics, rejected, totalRows);
+        var maxHierarchyDepth = 0;
+        if (root.TryGetProperty("maxHierarchyDepth", out var md) && md.GetInt32() > 0)
+            maxHierarchyDepth = md.GetInt32();
+
+        if (maxHierarchyDepth <= 0 || maxHierarchyDepth > dimensions.Count)
+        {
+            var treeElement = root.TryGetProperty("tree", out var t) ? t : root;
+            var computed = TreeHierarchyDepth.ComputeFromTreeElement(treeElement);
+            if (computed > 0)
+                maxHierarchyDepth = computed;
+        }
+
+        if (maxHierarchyDepth <= 0)
+            maxHierarchyDepth = Math.Min(dimensions.Count, totalRows > 1_000_000 ? 4 : dimensions.Count);
+
+        return new TreeEnvelopeMetadata(dimensions, metrics, rejected, totalRows, maxHierarchyDepth);
     }
 
     private static List<string> ReadStringArray(JsonElement root, string propertyName)

@@ -91,6 +91,13 @@ public class UploadProcessingService : IUploadProcessingService
         await onProgressAsync(92);
         await _treeRepository.SaveAsync(dataset.Id, treeNode, schema, treeResult.TotalRows);
 
+        var datasetConfig = DatasetConfig.Create(
+            dataset.Id,
+            schema.Config.MaxDimCardinality,
+            schema.Config.MaxHierarchyDepth,
+            schema.Config.FallbackTopValues);
+        await _datasetRepository.SaveConfigAsync(datasetConfig);
+
         // 4. Finalize
         dataset.MarkAsReady(treeResult.TotalRows);
         await _datasetRepository.UpdateAsync(dataset);
@@ -101,6 +108,7 @@ public class UploadProcessingService : IUploadProcessingService
             treeResult.TotalRows,
             dimensions,
             metrics,
+            schema.Config.MaxHierarchyDepth,
             schema.Dimensions,
             schema.Metrics);
     }

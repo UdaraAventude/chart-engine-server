@@ -60,6 +60,6 @@ public class VisualizationService : IVisualizationService
         var effectiveLevel = path.Count > 0 ? path.Count : drillDown;
         var formatter = _registry.GetFormatter(chartType);
 
-        return formatter.Format(targetNode, effectiveLevel, groupedBy);
+        return formatter.Format(targetNode, effectiveLevel, groupedBy, aggregation);
     }
 }

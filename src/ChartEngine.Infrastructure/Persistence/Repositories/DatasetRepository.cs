@@ -56,6 +56,13 @@ public class DatasetRepository : IDatasetRepository
         await _context.SaveChangesAsync(ct);
     }
 
+    public async Task<DatasetConfig?> GetConfigAsync(Guid datasetId, CancellationToken ct = default)
+    {
+        return await _context.DatasetConfigs
+            .AsNoTracking()
+            .FirstOrDefaultAsync(c => c.DatasetId == datasetId, ct);
+    }
+
     public async Task<PagedListDto<DatasetListDto>> GetPagedDatasetsAsync(
         int page,
         int pageSize,

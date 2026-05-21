@@ -5,6 +5,7 @@ public class VisualizationMetaDto
     public int Level { get; set; }
     public int NodesCount { get; set; }
     public string GroupedBy { get; set; } = string.Empty;
+    public bool CanDrillDown { get; set; }
 }
 
 public class ChartVisualizationDto
