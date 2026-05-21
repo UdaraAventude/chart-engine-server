@@ -36,8 +36,6 @@ public class TreeRepository : ITreeRepository
         int totalRows,
         CancellationToken ct = default)
     {
-        
-        
         var treeData = new
         {
             tree = root,
@@ -52,8 +50,14 @@ public class TreeRepository : ITreeRepository
             totalRows
         };
 
-        var json = JsonSerializer.Serialize(treeData, SerializerOptions);
-        var compressedJson = Compress(json);
+        // Stream JSON directly into GZipStream (zero-allocation for the massive string/byte[])
+        using var memoryStream = new MemoryStream();
+        using (var gzipStream = new GZipStream(memoryStream, CompressionMode.Compress, leaveOpen: true))
+        {
+            await JsonSerializer.SerializeAsync(gzipStream, treeData, SerializerOptions, ct);
+        }
+        
+        var compressedJson = Convert.ToBase64String(memoryStream.ToArray());
 
         var existing = await _context.AggregationTrees
             .FirstOrDefaultAsync(t => t.DatasetId == datasetId, ct);
@@ -78,17 +82,6 @@ public class TreeRepository : ITreeRepository
             return null;
 
         return Decompress(tree.TreeJson);
-    }
-
-    private static string Compress(string text)
-    {
-        byte[] bytes = Encoding.UTF8.GetBytes(text);
-        using var outputStream = new MemoryStream();
-        using (var gzipStream = new GZipStream(outputStream, CompressionMode.Compress, leaveOpen: true))
-        {
-            gzipStream.Write(bytes, 0, bytes.Length);
-        }
-        return Convert.ToBase64String(outputStream.ToArray());
     }
 
     private static string Decompress(string compressedText)

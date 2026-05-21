@@ -4,24 +4,51 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Chart Engine Test Client</title>
-    <!-- Load SignalR -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/8.0.0/signalr.min.js"></script>
     <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; padding: 2rem; max-width: 800px; margin: 0 auto; background: #f8f9fa; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; padding: 2rem; max-width: 900px; margin: 0 auto; background: #f8f9fa; }
         .card { background: white; padding: 2rem; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin-bottom: 2rem; }
         .log-container { background: #1e1e1e; color: #00ff00; padding: 1rem; border-radius: 8px; height: 300px; overflow-y: auto; font-family: monospace; }
         .btn { background: #007bff; color: white; border: none; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; font-size: 1rem; }
         .btn:disabled { background: #ccc; cursor: not-allowed; }
         .btn:hover:not(:disabled) { background: #0056b3; }
+        .btn-green { background: #28a745; } .btn-green:hover:not(:disabled) { background: #1e7e34; }
+        .btn-sm { padding: 0.25rem 0.6rem; font-size: 0.8rem; }
         h1, h2 { margin-top: 0; color: #333; }
         .status { margin-top: 1rem; font-weight: bold; }
+
+        /* --- Visualization Test Panel --- */
+        .vt-controls { display: flex; gap: 0.75rem; align-items: flex-end; flex-wrap: wrap; margin-bottom: 1.25rem; }
+        .vt-controls label { font-size: 0.85rem; font-weight: 600; color: #555; display: flex; flex-direction: column; gap: 0.25rem; }
+        .vt-controls input, .vt-controls select { padding: 0.4rem 0.6rem; border: 1px solid #ccc; border-radius: 4px; font-size: 0.9rem; }
+        .vt-controls input[type=text] { width: 22rem; }
+        .vt-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 0.75rem; margin-bottom: 1.25rem; }
+        .vt-card { border: 1px solid #dee2e6; border-radius: 6px; padding: 0.75rem 1rem; display: flex; flex-direction: column; gap: 0.4rem; cursor: pointer; transition: box-shadow 0.15s; }
+        .vt-card:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.12); }
+        .vt-card.selected { border-color: #007bff; box-shadow: 0 0 0 2px rgba(0,123,255,0.25); }
+        .vt-card .ct-name { font-weight: 700; font-size: 0.95rem; text-transform: capitalize; }
+        .vt-card .ct-badge { display: inline-block; padding: 0.15rem 0.5rem; border-radius: 20px; font-size: 0.75rem; font-weight: 600; width: fit-content; }
+        .badge-idle    { background: #e9ecef; color: #6c757d; }
+        .badge-running { background: #fff3cd; color: #856404; }
+        .badge-pass    { background: #d4edda; color: #155724; }
+        .badge-fail    { background: #f8d7da; color: #721c24; }
+        .vt-card .ct-latency { font-size: 0.75rem; color: #6c757d; }
+        .vt-summary { display: flex; gap: 1rem; margin-bottom: 1rem; font-size: 0.9rem; font-weight: 600; }
+        .vt-summary span { padding: 0.2rem 0.6rem; border-radius: 4px; }
+        .sum-pass { background: #d4edda; color: #155724; }
+        .sum-fail { background: #f8d7da; color: #721c24; }
+        .sum-total { background: #e9ecef; color: #495057; }
+        .vt-detail { background: #1e1e1e; color: #d4d4d4; padding: 1rem; border-radius: 6px; font-family: monospace; font-size: 0.8rem; white-space: pre-wrap; max-height: 320px; overflow-y: auto; }
+        .vt-detail-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem; }
+        .vt-detail-header span { font-weight: 600; font-size: 0.9rem; }
+        .progress-bar-wrap { background: #e9ecef; border-radius: 4px; height: 6px; margin-bottom: 0.75rem; overflow: hidden; display: none; }
+        .progress-bar-fill { height: 100%; background: #007bff; transition: width 0.2s; }
     </style>
 </head>
 <body>
 
     <div class="card">
         <h1>Chart Engine Data Pipeline Test</h1>
-        <p>Use this tool to upload your 1M+ row datasets directly to the backend and monitor the live progress.</p>
+        <p>Use this tool to upload your 1M+ row datasets directly to the backend and monitor the live progress via <strong>Server-Sent Events (SSE)</strong>.</p>
         
         <input type="file" id="fileInput" accept=".csv" />
         <button id="uploadBtn" class="btn">Upload Dataset</button>
@@ -30,15 +57,68 @@
     </div>
 
     <div class="card">
-        <h2>Live Processing Logs (SignalR)</h2>
+        <h2>Live Processing Logs (SSE Stream)</h2>
         <div id="logOutput" class="log-container">
-            <div>Waiting to connect...</div>
+            <div>Ready to stream logs...</div>
+        </div>
+    </div>
+
+    <!-- ===== Visualization Test Panel ===== -->
+    <div class="card">
+        <h2>Visualization API — Chart Type Tests</h2>
+        <p style="margin-top:0;color:#666;font-size:0.9rem;">
+            Tests <strong>all 10 chart types</strong> against the same dataset ID. A test passes when the API returns
+            HTTP 200 with non-empty <code>data</code> and the correct <code>chartType</code> in the response.
+        </p>
+
+        <div class="vt-controls">
+            <label>Dataset ID (auto-filled on upload)
+                <input type="text" id="vtDatasetId" placeholder="paste UUID here…" />
+            </label>
+            <label>drillDown
+                <select id="vtDrillDown">
+                    <option value="0">0 (root)</option>
+                    <option value="1">1</option>
+                    <option value="2">2</option>
+                    <option value="3">3</option>
+                </select>
+            </label>
+            <label>aggregation
+                <select id="vtAggregation">
+                    <option value="count">count</option>
+                    <option value="sum">sum</option>
+                    <option value="avg">avg</option>
+                    <option value="min">min</option>
+                    <option value="max">max</option>
+                </select>
+            </label>
+            <button id="vtRunAll" class="btn btn-green">Run All Tests</button>
+            <button id="vtReset" class="btn" style="background:#6c757d;">Reset</button>
+        </div>
+
+        <div class="progress-bar-wrap" id="vtProgressWrap">
+            <div class="progress-bar-fill" id="vtProgressFill" style="width:0%"></div>
+        </div>
+
+        <div class="vt-summary" id="vtSummary" style="display:none">
+            <span class="sum-total" id="sumTotal">0 / 10</span>
+            <span class="sum-pass"  id="sumPass">✓ 0 passed</span>
+            <span class="sum-fail"  id="sumFail">✗ 0 failed</span>
+        </div>
+
+        <div class="vt-grid" id="vtGrid"></div>
+
+        <div id="vtDetailBox" style="display:none">
+            <div class="vt-detail-header">
+                <span id="vtDetailTitle">Response</span>
+                <button class="btn btn-sm" onclick="copyResponse()">Copy JSON</button>
+            </div>
+            <div class="vt-detail" id="vtDetail"></div>
         </div>
     </div>
 
     <script>
         const API_BASE = "http://localhost:5110";
-        let connection = null;
 
         const fileInput = document.getElementById('fileInput');
         const uploadBtn = document.getElementById('uploadBtn');
@@ -53,34 +133,195 @@
             logOutput.scrollTop = logOutput.scrollHeight;
         }
 
-        async function setupSignalR() {
-            connection = new signalR.HubConnectionBuilder()
-                .withUrl(`${API_BASE}/hubs/dataset`)
-                .withAutomaticReconnect()
-                .build();
+        async function processStream(response) {
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder("utf-8");
+            let buffer = "";
 
-            connection.on("DatasetProgress", data => {
-                appendLog(`[PROGRESS] ${data.percent}% - ${data.message}`);
-            });
-
-            connection.on("DatasetReady", data => {
-                appendLog(`[SUCCESS] Dataset ${data.datasetId} processed successfully!`);
-                appendLog(`Total Rows: ${data.totalRows}`);
-                appendLog(`Dimensions: ${data.dimensions.join(", ")}`);
-                appendLog(`Metrics: ${data.metrics.join(", ")}`);
-            });
-
-            connection.on("DatasetFailed", data => {
-                appendLog(`[FAILED] Dataset ${data.datasetId} failed: ${data.error}`, true);
-            });
-
-            try {
-                await connection.start();
-                appendLog("Connected to real-time logs.");
-            } catch (err) {
-                appendLog("Failed to connect to SignalR: " + err.toString(), true);
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+                
+                buffer += decoder.decode(value, { stream: true });
+                
+                // Parse lines
+                const lines = buffer.split('\n');
+                buffer = lines.pop(); // Keep the last incomplete line in buffer
+                
+                for (let line of lines) {
+                    if (line.startsWith('data: ')) {
+                        const jsonStr = line.substring(6).trim();
+                        if (!jsonStr) continue;
+                        
+                        try {
+                            const data = JSON.parse(jsonStr);
+                            
+                            // Check for completion response
+                            if (data.status === 'completed' && data.data) {
+                                appendLog(`[SUCCESS] Dataset ${data.data.datasetId} processed successfully!`);
+                                appendLog(`Total Rows: ${data.data.totalRows}`);
+                                appendLog(`Dimensions: ${data.data.dimensions}`);
+                                appendLog(`Metrics: ${data.data.metrics}`);
+                                uploadStatus.textContent = "Upload and Processing Complete!";
+                                // Auto-fill the visualization test panel
+                                document.getElementById('vtDatasetId').value = data.data.datasetId;
+                            } 
+                            // Check for error
+                            else if (data.status === 'error') {
+                                appendLog(`[FAILED] Processing error: ${data.message}`, true);
+                                uploadStatus.textContent = "Processing Failed!";
+                            }
+                            // Otherwise it's a progress event
+                            else if (data.progress !== undefined) {
+                                appendLog(`[PROGRESS] ${data.progress}% - processing...`);
+                            }
+                        } catch (e) {
+                            console.error("Failed to parse chunk", jsonStr, e);
+                        }
+                    }
+                }
             }
         }
+
+        // ===== Visualization Test Panel Logic =====
+
+        const CHART_TYPES = ['bar','pie','line','scatter','bubble','heatmap','histogram','sunburst','multiline','correlation'];
+        const vtGrid        = document.getElementById('vtGrid');
+        const vtRunAll      = document.getElementById('vtRunAll');
+        const vtReset       = document.getElementById('vtReset');
+        const vtSummary     = document.getElementById('vtSummary');
+        const vtProgressWrap= document.getElementById('vtProgressWrap');
+        const vtProgressFill= document.getElementById('vtProgressFill');
+        const vtDetailBox   = document.getElementById('vtDetailBox');
+        const vtDetail      = document.getElementById('vtDetail');
+        const vtDetailTitle = document.getElementById('vtDetailTitle');
+        const sumTotal      = document.getElementById('sumTotal');
+        const sumPass       = document.getElementById('sumPass');
+        const sumFail       = document.getElementById('sumFail');
+
+        // Track per-chart-type results
+        const results = {};
+
+        function buildGrid() {
+            vtGrid.innerHTML = '';
+            for (const ct of CHART_TYPES) {
+                const card = document.createElement('div');
+                card.className = 'vt-card';
+                card.id = `vt-card-${ct}`;
+                card.innerHTML = `
+                    <div class="ct-name">${ct}</div>
+                    <div class="ct-badge badge-idle" id="badge-${ct}">idle</div>
+                    <div class="ct-latency" id="lat-${ct}"></div>`;
+                card.addEventListener('click', () => showDetail(ct));
+                vtGrid.appendChild(card);
+            }
+        }
+
+        function setBadge(ct, state, label) {
+            const b = document.getElementById(`badge-${ct}`);
+            b.className = `ct-badge badge-${state}`;
+            b.textContent = label;
+        }
+
+        function setLatency(ct, ms) {
+            document.getElementById(`lat-${ct}`).textContent = ms != null ? `${ms} ms` : '';
+        }
+
+        function showDetail(ct) {
+            document.querySelectorAll('.vt-card').forEach(c => c.classList.remove('selected'));
+            const card = document.getElementById(`vt-card-${ct}`);
+            if (card) card.classList.add('selected');
+
+            const r = results[ct];
+            if (!r) { vtDetailBox.style.display = 'none'; return; }
+
+            vtDetailTitle.textContent = `${ct}  —  HTTP ${r.status ?? '—'}  ${r.latency != null ? '(' + r.latency + ' ms)' : ''}`;
+            vtDetail.textContent = r.body ? JSON.stringify(r.body, null, 2) : (r.error || 'No data');
+            vtDetailBox.style.display = 'block';
+        }
+
+        function copyResponse() {
+            navigator.clipboard.writeText(vtDetail.textContent).catch(() => {});
+        }
+
+        async function runSingleTest(ct, datasetId, drillDown, aggregation) {
+            setBadge(ct, 'running', 'running…');
+            setLatency(ct, null);
+            results[ct] = {};
+
+            const url = `${API_BASE}/api/v1/documents/visual?id=${encodeURIComponent(datasetId)}&chartType=${ct}&drillDown=${drillDown}&aggregation=${aggregation}`;
+            const t0 = performance.now();
+
+            try {
+                const res = await fetch(url);
+                const latency = Math.round(performance.now() - t0);
+                const body = await res.json().catch(() => null);
+
+                const passed = res.ok
+                    && body != null
+                    && body.chartType === ct
+                    && body.data != null
+                    && (Array.isArray(body.data) ? body.data.length > 0 : Object.keys(body.data).length > 0);
+
+                results[ct] = { status: res.status, latency, body, passed };
+                setBadge(ct, passed ? 'pass' : 'fail', passed ? '✓ pass' : '✗ fail');
+                setLatency(ct, latency);
+            } catch (err) {
+                const latency = Math.round(performance.now() - t0);
+                results[ct] = { status: null, latency, error: err.toString(), passed: false };
+                setBadge(ct, 'fail', '✗ error');
+                setLatency(ct, latency);
+            }
+        }
+
+        function updateSummary() {
+            const total  = CHART_TYPES.length;
+            const passed = CHART_TYPES.filter(ct => results[ct]?.passed).length;
+            const failed = CHART_TYPES.filter(ct => results[ct] && !results[ct].passed).length;
+            sumTotal.textContent = `${passed + failed} / ${total} done`;
+            sumPass.textContent  = `✓ ${passed} passed`;
+            sumFail.textContent  = `✗ ${failed} failed`;
+            vtSummary.style.display = 'flex';
+        }
+
+        vtRunAll.addEventListener('click', async () => {
+            const datasetId = document.getElementById('vtDatasetId').value.trim();
+            if (!datasetId) { alert('Paste a Dataset ID first.'); return; }
+
+            const drillDown   = document.getElementById('vtDrillDown').value;
+            const aggregation = document.getElementById('vtAggregation').value;
+
+            vtRunAll.disabled = true;
+            vtProgressWrap.style.display = 'block';
+            vtProgressFill.style.width = '0%';
+            vtDetailBox.style.display  = 'none';
+            vtSummary.style.display    = 'none';
+
+            let done = 0;
+            // Run all tests concurrently
+            await Promise.all(CHART_TYPES.map(async ct => {
+                await runSingleTest(ct, datasetId, drillDown, aggregation);
+                done++;
+                vtProgressFill.style.width = `${Math.round(done / CHART_TYPES.length * 100)}%`;
+                updateSummary();
+            }));
+
+            vtRunAll.disabled = false;
+        });
+
+        vtReset.addEventListener('click', () => {
+            Object.keys(results).forEach(k => delete results[k]);
+            buildGrid();
+            vtSummary.style.display    = 'none';
+            vtProgressWrap.style.display = 'none';
+            vtProgressFill.style.width = '0%';
+            vtDetailBox.style.display  = 'none';
+        });
+
+        // Build the initial grid on load
+        buildGrid();
+
+        // ===== End Visualization Test Panel =====
 
         uploadBtn.addEventListener('click', async () => {
             const file = fileInput.files[0];
@@ -92,12 +333,14 @@
             uploadBtn.disabled = true;
             uploadStatus.textContent = `Uploading ${file.name} (${(file.size / 1024 / 1024).toFixed(2)} MB)...`;
             appendLog(`Starting upload for ${file.name}...`);
+            appendLog(`Establishing SSE connection...`);
 
             const formData = new FormData();
             formData.append('file', file);
 
             try {
-                const response = await fetch(`${API_BASE}/api/v1/datasets/upload`, {
+                // We use fetch instead of EventSource because we need to send a POST with FormData
+                const response = await fetch(`${API_BASE}/api/v1/documents/upload`, {
                     method: 'POST',
                     body: formData
                 });
@@ -106,36 +349,8 @@
                     throw new Error(`Upload failed with status ${response.status}`);
                 }
 
-                const result = await response.json();
-                uploadStatus.textContent = `Upload complete! Backend processing started.`;
-                appendLog(`Received Dataset ID: ${result.datasetId}`);
-
-                // Join the SignalR group to get updates
-                if (connection && connection.state === signalR.HubConnectionState.Connected) {
-                    await connection.invoke("JoinDatasetGroup", result.datasetId);
-                    appendLog(`Joined SignalR group for Dataset ID: ${result.datasetId}`);
-                }
-
-                // FALLBACK: The backend is so fast now it might finish before we join the SignalR group!
-                // Let's poll the status endpoint just in case we miss the real-time message.
-                const checkInterval = setInterval(async () => {
-                    try {
-                        const statusRes = await fetch(`${API_BASE}/api/v1/datasets/${result.datasetId}/status`);
-                        if (statusRes.ok) {
-                            const statusData = await statusRes.json();
-                            if (statusData.status === 'Ready') {
-                                clearInterval(checkInterval);
-                                appendLog(`[FALLBACK DETECTED] Dataset is already Ready!`);
-                                uploadStatus.textContent = `Processing Complete! (Finished before SignalR could connect)`;
-                            } else if (statusData.status === 'Failed') {
-                                clearInterval(checkInterval);
-                                appendLog(`[FAILED] Dataset processing failed.`, true);
-                            }
-                        }
-                    } catch (e) {
-                        // ignore poll errors
-                    }
-                }, 1000);
+                // Process the Server-Sent Events stream from the response body
+                await processStream(response);
 
             } catch (err) {
                 uploadStatus.textContent = `Upload Error!`;
@@ -145,9 +360,6 @@
                 uploadBtn.disabled = false;
             }
         });
-
-        // Initialize SignalR on page load
-        setupSignalR();
     </script>
 </body>
 </html>

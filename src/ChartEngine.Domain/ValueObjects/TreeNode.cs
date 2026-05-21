@@ -1,4 +1,4 @@
-﻿namespace ChartEngine.Domain.ValueObjects;
+namespace ChartEngine.Domain.ValueObjects;
 
 
 
@@ -22,5 +22,8 @@ public class TreeNode
     
     [System.Text.Json.Serialization.JsonIgnore]
     public Dictionary<string, TreeNode> ChildrenMap { get; set; } = new();
+
+    [System.Text.Json.Serialization.JsonIgnore]
+    public MetricAggs[]? AggsArray { get; set; }
 }
 
