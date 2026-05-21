@@ -2,11 +2,8 @@ namespace ChartEngine.Infrastructure.Extensions;
 
 using ChartEngine.Application.Interfaces.Infrastructure;
 using ChartEngine.Application.Interfaces.Repositories;
-using ChartEngine.Application.Interfaces.Services;
-using ChartEngine.Infrastructure.BackgroundJobs;
 using ChartEngine.Infrastructure.Persistence;
 using ChartEngine.Infrastructure.Persistence.Repositories;
-using ChartEngine.Infrastructure.Services;
 using ChartEngine.Infrastructure.Storage;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -30,26 +27,7 @@ public static class ServiceRegistrationExtensions
     public static IServiceCollection AddApplicationServices(
         this IServiceCollection services)
     {
-        services.AddScoped<IDatasetService, DatasetService>();
-        services.AddScoped<IDatasetPipelineService, DatasetPipelineService>();
-        services.AddScoped<IRowQueryService, RowQueryService>();
-        services.AddScoped<IExportService, ExportService>();
         services.AddSingleton<IFileStorage, LocalFileStorage>();
-        return services;
-    }
-
-    public static IServiceCollection AddBackgroundPipeline(
-        this IServiceCollection services)
-    {
-        
-        services.AddSingleton<DatasetProcessingChannel>();
-        services.AddSingleton<ExportProcessingChannel>();
-
-        
-        
-        services.AddHostedService<DatasetProcessingWorker>();
-        services.AddHostedService<ExportProcessingWorker>();
-
         return services;
     }
 

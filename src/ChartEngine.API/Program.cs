@@ -1,5 +1,4 @@
 using ChartEngine.Infrastructure.Extensions;
-using ChartEngine.Application.Hubs;
 using ChartEngine.API.Middleware;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -20,26 +19,24 @@ builder.Services.AddCors(options =>
 {
     options.AddDefaultPolicy(policy =>
     {
-        policy.WithOrigins("http://localhost:5110", "http://127.0.0.1", "null") // 'null' is often sent by file:// origins
+        policy.WithOrigins("http://localhost:5110", "http://127.0.0.1", "null") 
               .AllowAnyHeader()
               .AllowAnyMethod()
-              .SetIsOriginAllowed(_ => true) // Allow any origin for testing
-              .AllowCredentials(); // SignalR needs credentials
+              .SetIsOriginAllowed(_ => true) 
+              .AllowCredentials(); 
     });
 });
 
 builder.Services.AddPersistence(builder.Configuration);
 builder.Services.AddApplicationServices();
 builder.Services.AddAnalyticsPipeline();
-builder.Services.AddBackgroundPipeline();
-builder.Services.AddSignalR();
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
 var app = builder.Build();
 
-app.UseCors(); // Enable CORS before routing/endpoints
+app.UseCors(); 
 
 app.UseMiddleware<GlobalExceptionMiddleware>();
 
@@ -47,7 +44,6 @@ app.UseSwagger();
 app.UseSwaggerUI();
 
 app.MapControllers();
-app.MapHub<DatasetHub>("/hubs/dataset");
 app.MapGet("/health", () => Results.Ok(new { status = "healthy" }));
 
 app.Run();
