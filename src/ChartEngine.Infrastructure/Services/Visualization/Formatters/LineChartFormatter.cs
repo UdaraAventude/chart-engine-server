@@ -16,7 +16,12 @@ public class LineChartFormatter : IChartFormatter
         var points = series.Select(item =>
         {
             dynamic d = item;
-            return new { x = (string)d.name, y = (double)d.value };
+            return new
+            {
+                x = (string)d.name,
+                y = (double)d.value,
+                count = (int)d.count,
+            };
         }).Cast<object>().ToList();
 
         var data = new List<object>

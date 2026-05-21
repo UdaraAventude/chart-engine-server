@@ -21,8 +21,8 @@ public class ScatterFormatter : IChartFormatter
                 data.Add(new
                 {
                     name = child.Name,
-                    x = child.Name,
                     y = ChartValueResolver.Resolve(child, aggregation),
+                    count = child.Count,
                 });
             }
         }
