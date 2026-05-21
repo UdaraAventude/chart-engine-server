@@ -87,8 +87,8 @@ public class UploadProcessingService : IUploadProcessingService
         });
         
         var treeNode = treeResult.Root;
+        await onProgressAsync(92);
         await _treeRepository.SaveAsync(dataset.Id, treeNode, schema, treeResult.TotalRows);
-        await onProgressAsync(90); // Tree built
 
         // 4. Finalize
         dataset.MarkAsReady(treeResult.TotalRows);
