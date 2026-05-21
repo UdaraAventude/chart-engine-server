@@ -1,6 +1,7 @@
 using ChartEngine.Application.DTOs;
 using ChartEngine.Application.Interfaces.Visualization;
 using ChartEngine.Domain.Entities;
+using ChartEngine.Domain.ValueObjects;
 
 namespace ChartEngine.Infrastructure.Services.Visualization.Formatters;
 
@@ -20,8 +21,8 @@ public class LineChartFormatter : IChartFormatter
             {
                 points.Add(new
                 {
-                    x = childKvp.Key,
-                    y = childKvp.Value.Count
+                    x = childKvp.Name,
+                    y = childKvp.Count
                 });
             }
         }

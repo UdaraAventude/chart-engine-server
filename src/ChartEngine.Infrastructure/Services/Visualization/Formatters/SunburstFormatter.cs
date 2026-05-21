@@ -1,6 +1,6 @@
 using ChartEngine.Application.DTOs;
 using ChartEngine.Application.Interfaces.Visualization;
-using ChartEngine.Domain.Entities;
+using ChartEngine.Domain.ValueObjects;
 
 namespace ChartEngine.Infrastructure.Services.Visualization.Formatters;
 
@@ -15,7 +15,7 @@ public class SunburstFormatter : IChartFormatter
             if (n.Children == null || !n.Children.Any())
                 return new { name, loc = n.Count };
 
-            return new { name, children = n.Children.Select(c => CreateHierarchy(c.Value, c.Key)).ToList() };
+            return new { name, children = n.Children.Select(c => CreateHierarchy(c, c.Name)).ToList() };
         }
 
         var data = CreateHierarchy(node, "root");

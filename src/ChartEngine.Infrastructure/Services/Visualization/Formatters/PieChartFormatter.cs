@@ -1,6 +1,7 @@
 using ChartEngine.Application.DTOs;
 using ChartEngine.Application.Interfaces.Visualization;
 using ChartEngine.Domain.Entities;
+using ChartEngine.Domain.ValueObjects;
 
 namespace ChartEngine.Infrastructure.Services.Visualization.Formatters;
 
@@ -18,9 +19,9 @@ public class PieChartFormatter : IChartFormatter
             {
                 data.Add(new
                 {
-                    id = childKvp.Key,
-                    label = childKvp.Key,
-                    value = childKvp.Value.Count
+                    id = childKvp.Name,
+                    label = childKvp.Name,
+                    value = childKvp.Count
                 });
             }
         }

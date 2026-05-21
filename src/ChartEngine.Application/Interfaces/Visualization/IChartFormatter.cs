@@ -1,5 +1,6 @@
 using ChartEngine.Application.DTOs;
 using ChartEngine.Domain.Entities;
+using ChartEngine.Domain.ValueObjects;
 
 namespace ChartEngine.Application.Interfaces.Visualization;
 

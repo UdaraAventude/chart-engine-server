@@ -1,6 +1,7 @@
 using ChartEngine.Application.DTOs;
 using ChartEngine.Application.Interfaces.Visualization;
 using ChartEngine.Domain.Entities;
+using ChartEngine.Domain.ValueObjects;
 
 namespace ChartEngine.Infrastructure.Services.Visualization.Formatters;
 
@@ -15,7 +16,7 @@ public class HistogramFormatter : IChartFormatter
         {
             foreach (var childKvp in node.Children)
             {
-                data.Add(new { bin = childKvp.Key, frequency = childKvp.Value.Count });
+                data.Add(new { bin = childKvp.Name, frequency = childKvp.Count });
             }
         }
 

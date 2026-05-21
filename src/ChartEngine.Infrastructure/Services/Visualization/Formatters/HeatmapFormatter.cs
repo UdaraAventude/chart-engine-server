@@ -1,6 +1,7 @@
 using ChartEngine.Application.DTOs;
 using ChartEngine.Application.Interfaces.Visualization;
 using ChartEngine.Domain.Entities;
+using ChartEngine.Domain.ValueObjects;
 
 namespace ChartEngine.Infrastructure.Services.Visualization.Formatters;
 
@@ -15,7 +16,7 @@ public class HeatmapFormatter : IChartFormatter
         {
             foreach (var kvp in node.Children)
             {
-                data.Add(new { id = kvp.Key, data = new[] { new { x = "Value", y = kvp.Value.Count } } });
+                data.Add(new { id = kvp.Name, data = new[] { new { x = "Value", y = kvp.Count } } });
             }
         }
 

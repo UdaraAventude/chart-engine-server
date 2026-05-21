@@ -30,7 +30,12 @@ builder.Services.AddCors(options =>
 builder.Services.AddPersistence(builder.Configuration);
 builder.Services.AddApplicationServices();
 builder.Services.AddAnalyticsPipeline();
-builder.Services.AddControllers();
+builder.Services.AddVisualizationServices();
+builder.Services.AddControllers()
+    .AddJsonOptions(options =>
+    {
+        options.JsonSerializerOptions.PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase;
+    });
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 

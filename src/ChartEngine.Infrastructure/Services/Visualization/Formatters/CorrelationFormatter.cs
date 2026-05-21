@@ -1,6 +1,7 @@
 using ChartEngine.Application.DTOs;
 using ChartEngine.Application.Interfaces.Visualization;
 using ChartEngine.Domain.Entities;
+using ChartEngine.Domain.ValueObjects;
 
 namespace ChartEngine.Infrastructure.Services.Visualization.Formatters;
 
@@ -13,7 +14,7 @@ public class CorrelationFormatter : IChartFormatter
         var data = new List<object>();
         if (node.Children != null)
         {
-            var points = node.Children.Select(c => new { x = c.Key, y = c.Value.Count, r = (double)c.Value.Count / 10 }).ToList();
+            var points = node.Children.Select(c => new { x = c.Name, y = c.Count, r = (double)c.Count / 10 }).ToList();
             data.Add(new { id = groupBy, data = points });
         }
 
