@@ -1,12 +1,36 @@
-# 📊 Chart Engine Server: High-Performance Data Intelligence & Aggregation Engine
+# Chart Engine Server
 
-Chart Engine is a performant, Clean Architecture-based .NET backend engineered to ingest, analyze, aggregate, and export massive datasets (10M+ rows) in real-time. It completely replaces client-side CSV parsing bottlenecks by streaming raw files, performing schema auto-detection, constructing deep, multi-dimensional hierarchical aggregation trees on the server side, and running asynchronous, memory-efficient filtered exports.
+High-performance .NET backend for ingesting large CSV datasets, auto-detecting schema, building hierarchical aggregation trees, serving chart-ready visualizations, and running memory-efficient filtered exports.
+
+Built as a **modular monolith** using Clean Architecture: business rules live in `Domain`, contracts in `Application`, implementations in `Infrastructure`, and HTTP in `API`.
 
 ---
 
-## 🏛️ Clean Architecture Overview
+## Solution structure
 
-The system is structured as a **Modular Monolith** using Clean Architecture principles, ensuring that core business rules are decoupled from external infrastructure, web APIs, and databases:
+```
+chart-engine-server/
+├── ChartEngine.slnx
+├── test_client.html              # Browser test client (upload SSE + chart API tests)
+├── docs/                         # Architecture and feature deep-dives
+├── src/
+│   ├── ChartEngine.API/          # ASP.NET Core host, controllers, middleware
+│   ├── ChartEngine.Application/  # DTOs, interfaces (repos, services, analytics, charts)
+│   ├── ChartEngine.Domain/       # Entities, value objects, enums, exceptions
+│   └── ChartEngine.Infrastructure/
+│       ├── Analytics/            # SchemaDetector, TreeBuilder, DynamicConfigResolver
+│       ├── BackgroundJobs/       # Export queue + worker (channel-based)
+│       ├── Extensions/           # DI registration (persistence, pipelines, visualization)
+│       ├── Migrations/           # EF Core SQL Server migrations
+│       ├── Persistence/          # AppDbContext, repositories
+│       ├── Services/             # UploadProcessingService, ExportService, Visualization
+│       │   └── Visualization/Formatters/   # 10 chart formatters + registry
+│       └── Storage/              # LocalFileStorage
+└── tests/
+    └── ChartEngine.Tests/        # xUnit tests (schema, tree, export)
+```
+
+### Layer dependencies
 
 ```mermaid
 graph TD
@@ -14,184 +38,233 @@ graph TD
     Infrastructure[ChartEngine.Infrastructure] --> Application
     Infrastructure --> Domain[ChartEngine.Domain]
     Application --> Domain
+    Tests[ChartEngine.Tests] --> Infrastructure
 ```
 
-### 📂 Core Directory Structure
-
-*   **`ChartEngine.Domain`**: Core enterprise business rules. Declares domain models (`Dataset`, `DatasetColumn`, `DatasetConfig`, `ExportJob`), status enums, and domain-level exceptions. Has 0 external dependencies.
-*   **`ChartEngine.Application`**: Defines high-level application logic and contracts. Contains DTOs (`DatasetListDto`, `ExportJobStatusDto`, `PagedRowsDto`), repository contracts (`IDatasetRepository`, `ITreeRepository`, `IExportRepository`), and service interfaces.
-*   **`ChartEngine.Infrastructure`**: Implementation details for all external services:
-    *   **`Persistence`**: EF Core context (`AppDbContext`), SQL Server schema configurations, repositories, and DB migrations.
-    *   **`Analytics`**: High-performance streaming engines (`TreeBuilder.cs`, `SchemaDetector.cs`).
-    *   **`BackgroundJobs`**: Non-blocking channel-based worker queues for dataset parsing (`DatasetProcessingWorker.cs`) and async spreadsheet exporting (`ExportProcessingWorker.cs`).
-*   **`ChartEngine.API`**: Exposes the RESTful API endpoints, handles file streaming limits, configures Swagger, SignalR hub routing, and CORS policies.
+| Project | Role |
+|---------|------|
+| **ChartEngine.Domain** | `Dataset`, `ExportJob`, `AggregationTree`, `TreeNode`, `DatasetSchema`, `MetricAggs`. No external dependencies. |
+| **ChartEngine.Application** | DTOs, repository/service interfaces, `IChartFormatter`, analytics contracts (`ISchemaDetector`, `ITreeBuilder`). |
+| **ChartEngine.Infrastructure** | EF Core + SQL Server, file storage, analytics engines, upload/visualization/export services, export background worker. |
+| **ChartEngine.API** | REST controllers, Swagger, CORS, global exception middleware, Kestrel limits (up to 2 GB uploads). |
 
 ---
 
-## 🚀 Architectural Execution Pipelines
+## Processing pipelines
 
-The backend features two decoupled, high-performance background pipelines that handle long-running data operations asynchronously.
+### 1. Synchronous upload (SSE)
 
-### 1. Ingestion, Schema Detection & Tree Building Pipeline
+Upload and tree building run **in the HTTP request** on `POST /api/v1/documents/upload`. Progress is streamed back as **Server-Sent Events** (not SignalR).
 
 ```mermaid
 sequenceDiagram
-    autonumber
-    actor Client as Client Browser
-    participant API as DatasetsController
-    participant Service as DatasetService
-    participant Queue as DatasetProcessingChannel
-    participant Worker as DatasetProcessingWorker
-    participant Pipeline as DatasetPipelineService
-    participant Analytics as TreeBuilder
-    participant DB as SQL Server (EF Core)
-    participant Hub as SignalR (DatasetHub)
+    participant Client
+    participant API as DocumentsController
+    participant Upload as UploadProcessingService
+    participant Analytics as SchemaDetector + TreeBuilder
+    participant DB as SQL Server
 
-    Client->>API: POST /api/v1/datasets/upload (Multipart CSV)
-    API->>Service: UploadAsync(IFormFile)
-    Note over Service: 1. Generate new Dataset ID<br/>2. Save raw CSV to storage disk
-    Service->>DB: AddAsync(Dataset) [Status: Ingested]
-    Service->>Queue: TryEnqueue(DatasetId)
-    Service-->>Client: 202 Accepted (DatasetId)
-    Client->>Hub: JoinDatasetGroup(DatasetId)
-
-    Note over Worker: Background worker picks up DatasetId from Queue
-    Worker->>Pipeline: ProcessAsync(DatasetId)
-    Pipeline->>Hub: Broadcast: 5% - Starting pipeline
-    
-    Note over Pipeline: Run Schema Detection on 1,000-row sample
-    Pipeline->>Hub: Broadcast: 20% - Detecting Schema
-    
-    Note over Pipeline: Run TreeBuilder to parse and aggregate entire CSV
-    Pipeline->>Analytics: BuildAsync(...)
-    loop Streaming CSV (Every 50k rows)
-        Analytics->>Hub: Broadcast: [PROGRESS] X% - Building tree
-    end
-    Analytics-->>Pipeline: Return memory AggregationTree
-    
-    Pipeline->>DB: SaveAsync(AggregationTree) [Serialize to JSON]
-    Pipeline->>DB: SaveColumnsAsync() & SaveConfigAsync() [Persist Schema]
-    Pipeline->>DB: UpdateAsync(Dataset) [Status: Ready]
-    Pipeline->>Hub: Broadcast: 100% - Complete (DatasetReady)
+    Client->>API: POST upload (multipart CSV)
+    API->>Upload: ProcessAsync(file, onProgress)
+    Upload->>DB: Create Dataset, save file to disk
+    Upload->>Analytics: Detect schema (500-row sample)
+    Upload->>Analytics: BuildAsync (stream full CSV)
+    Upload->>DB: Save gzip-compressed aggregation tree
+    Upload-->>API: UploadCompletedResult
+    API-->>Client: SSE progress … 100% completed
 ```
 
-### 2. Decoupled Asynchronous Server-Side Export Pipeline
+**`UploadProcessingService`** steps:
+
+1. Save raw CSV via `IFileStorage`
+2. Sample **500 rows** for schema detection
+3. Estimate row count as `file.Length / 100` (drives `DynamicConfigResolver`: max depth, dimension cardinality)
+4. Stream-build aggregation tree with `TreeBuilder`
+5. Persist tree envelope `{ tree, dimensions, metrics, rejected, totalRows }` (gzip + base64 in DB)
+
+### 2. Background export (async)
+
+Exports use a **channel queue** and `ExportProcessingWorker` (hosted service). CSV/Excel generation streams rows with O(1) memory (MiniExcel for Excel).
 
 ```mermaid
 sequenceDiagram
-    autonumber
-    actor Client
+    participant Client
     participant API as ExportController
-    participant Service as ExportService
-    participant Queue as ExportProcessingChannel
+    participant Export as ExportService
     participant Worker as ExportProcessingWorker
-    participant Disk as Storage (exports/)
-    participant DB as SQL Server (EF Core)
+    participant Disk as Storage
 
-    Client->>API: POST /api/v1/datasets/{id}/export (Format, DrillPath)
-    API->>Service: StartExportAsync()
-    Service->>DB: Save ExportJob (Pending)
-    Service->>Queue: TryEnqueue(jobId)
-    Service-->>API: ExportJobStatusDto
-    API-->>Client: 202 Accepted (Status DTO)
-
-    Note over Queue, Worker: Thread-safe Channel Queue Consumption
-    Queue->>Worker: Dequeues jobId
-    Worker->>Service: ProcessExportAsync()
-    Service->>DB: Mark status to Processing
-    
-    rect rgb(235, 245, 255)
-        Note over Service: O(1) Memory Streaming Loop
-        Service->>Disk: Stream source CSV
-        Service->>Service: Filter rows lazy (yield return)
-        Service->>Disk: Write target file (CSV / Excel)
-    end
-
-    Service->>DB: Mark status to Completed (DownloadPath)
-    
-    loop Polling Status
-        Client->>API: GET /api/v1/datasets/exports/{jobId}
-        API->>DB: Fetch job status
-        DB-->>API: ExportJob
-        API-->>Client: Status DTO (Completed)
-    end
-
-    Client->>API: GET /api/v1/datasets/exports/{jobId}/download
-    API->>Service: DownloadExportAsync()
-    Service->>API: Stream Attachment (FileStream, Content-Type, Filename)
-    API-->>Client: 200 OK File Download
+    Client->>API: POST /api/v1/datasets/{id}/export
+    API->>Export: StartExportAsync → enqueue job
+    API-->>Client: 202 Accepted (job id)
+    Worker->>Export: ProcessExportAsync
+    Export->>Disk: Stream filtered rows → file
+    Client->>API: GET exports/{jobId} (poll)
+    Client->>API: GET exports/{jobId}/download
 ```
 
 ---
 
-## ⚡ Core API Capabilities
+## API reference
 
-The backend exposes a highly optimized suite of endpoints designed to handle all aspects of dataset management, exploration, and exporting:
+Base URL (development): `http://localhost:5110`
 
-### 📥 1. Dataset Ingestion & Aggregation
-*   `POST /api/v1/datasets/upload` — Streams a raw multipart CSV file directly to disk, registers it in the DB as `Ingested`, and queues it.
-*   `GET /api/v1/datasets/{id}/status` — Returns the current processing state of the ingestion pipeline.
-*   `GET /api/v1/datasets/{id}/schema` — Returns the auto-detected columns, roles (Dimension or Metric), and metadata.
-*   `GET /api/v1/datasets/{id}/tree` — Returns the completed serialized hierarchical aggregation tree (aggregating sum, count, min, max, avg at every level).
-*   `GET /api/v1/datasets/{id}/drill?path=USA,California` — Lazy-loads children of the aggregation tree dynamically based on a path, avoiding loading massive JSON objects into memory.
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/health` | Health check |
+| `POST` | `/api/v1/documents/upload` | Upload CSV; response is `text/event-stream` (SSE) |
+| `GET` | `/api/v1/documents` | Paginated dataset list (`page`, `pageSize`, `sortBy`, `search`) |
+| `DELETE` | `/api/v1/documents/{id}` | Delete dataset and related DB rows |
+| `GET` | `/api/v1/documents/visual` | Chart payload for a dataset |
+| `POST` | `/api/v1/datasets/{datasetId}/export` | Start export job (`format`, optional `drillPath`) |
+| `GET` | `/api/v1/datasets/exports/{jobId}` | Export job status |
+| `GET` | `/api/v1/datasets/exports/{jobId}/download` | Download completed export |
 
-### 📋 2. Dataset Management
-*   `GET /api/v1/datasets` — Exposes a paginated dataset catalog.
-    *   **Parameters**: `page` (default: 1), `pageSize` (default: 10), `sortBy` (`createdAt` descending or `fileName` ascending), and `search` (case-insensitive file name matching).
-*   `DELETE /api/v1/datasets/{id}` — Gracefully deletes the physical source CSV file and invokes database cascade deletion across all child records (`dbo.DatasetColumns`, `dbo.DatasetConfigs`, `dbo.AggregationTrees`, and `dbo.ExportJobs`).
+Swagger UI: `http://localhost:5110/swagger`
 
-### 🔍 3. Paginated Raw Row Access
-*   `GET /api/v1/datasets/{id}/rows` — Provides fast paginated access to filtered raw rows matching an optional `drillPath` JSON query parameter.
-    *   **Parameters**: `page`, `pageSize`, `drillPath` (JSON array of `{column, value}` objects).
-    *   **Histogram Filtering**: Dynamically parses the `__hist__` prefix (e.g. `__hist__Age = [20-30]` or `(10-25]`) to stream-filter numerical ranges in $O(1)$ memory.
+### Upload SSE events
 
-### 📤 4. Asynchronous Filtered Exports (CSV & Excel)
-*   `POST /api/v1/datasets/{id}/export` — Triggers an export background job. Accepts format (`CSV` or `Excel`) and optional `drillPath`.
-    *   **Polymorphic Request Binding**: Accepts the `drillPath` filter either as a escaped JSON string or as a rich, nested JSON array directly in the request body.
-*   `GET /api/v1/datasets/exports/{jobId}` — Polls the state of the export job (`Pending` -> `Processing` -> `Completed`/`Failed`).
-*   `GET /api/v1/datasets/exports/{jobId}/download` — Streams the generated `.csv` or `.xlsx` spreadsheet back to the client using a optimized 64KB internal buffer.
+Each event is a line: `data: {json}\n\n`
+
+| `status` | Meaning |
+|----------|---------|
+| `processing` | `progress` 0–99 |
+| `completed` | `data`: `{ datasetId, totalRows, dimensions, metrics }` |
+| `error` | `message`: error text |
+
+### Visualization
+
+`GET /api/v1/documents/visual`
+
+| Query | Default | Description |
+|-------|---------|-------------|
+| `id` | (required) | Dataset UUID |
+| `chartType` | `bar` | See supported types below |
+| `drillDown` | `0` | Tree depth (0 = root; walks first child per level) |
+| `aggregation` | `count` | Passed to formatters as metadata (`meta.groupedBy`) |
+
+**Supported `chartType` values:** `bar`, `pie`, `line`, `scatter`, `bubble`, `heatmap`, `histogram`, `sunburst`, `multiline`, `correlation`. Unknown types fall back to `bar`.
+
+**Response shape:**
+
+```json
+{
+  "chartType": "bar",
+  "data": [ { "name": "...", "value": 123 } ],
+  "meta": { "level": 0, "nodesCount": 8, "groupedBy": "count" }
+}
+```
+
+The service loads the stored tree envelope, extracts the nested `tree` node, navigates to `drillDown`, and runs the matching formatter.
+
+### Export request body
+
+```json
+{
+  "format": "CSV",
+  "drillPath": [{ "column": "Country", "value": "USA" }]
+}
+```
+
+`drillPath` may also be sent as a JSON string. Formats: `CSV`, `Excel`.
 
 ---
 
-## 🛠️ Performance Engineering & Memory Optimizations
+## Getting started
 
-During our scalability validation phases, the server went through comprehensive engineering to ensure enterprise readiness:
+### Prerequisites
 
-### 🚀 1. 10x Aggregation Speedup (Tree Building)
-*   **The Problem:** Allocating separate dictionaries for each column on every single row in a 2M-row CSV triggered intense Garbage Collection (GC) pauses, causing the ingestion to take over 10 minutes.
-*   **The Optimization:** Replaced dictionary lookups with pre-resolved index maps resolved once on headers. Row values are pulled directly by integer field indices in the streaming loop. Garbage collection allocations dropped to negligible levels, pushing execution times under **44 seconds** for a 2,000,000-row file.
+- [.NET 10 SDK](https://dotnet.microsoft.com/download)
+- SQL Server (local or remote)
+- Writable storage path for uploaded CSVs
 
-### 💾 2. Absolute $O(1)$ Memory Footprint for Exports
-*   **The Problem:** Generating files or Excel sheets for large datasets by holding rows in-memory causes the backend to run out of memory (OOM) and crash under heavy concurrent use.
-*   **The Optimization:** 
-    *   **CSV Writing:** Uses a streaming loop that reads rows from disk using a `64KB` buffer, immediately evaluates filters, and writes matching records out to the export file synchronously.
-    *   **Excel Writing:** Utilizes the lightweight, ultra-performant **`MiniExcel`** engine paired with a custom C# `yield return` lazy generator. MiniExcel pulls records one-by-one from the enumerator as it compiles the openXML layout, securing a flat $O(1)$ memory graph regardless of dataset size.
+### Configuration
 
-### 🗑️ 3. Full Cascade Deletion Integration
-*   Designed explicit cascade foreign key mappings on all child entities in `AppDbContext.cs`. Removing a dataset automatically triggers database triggers to clean up its schemas, aggregates, and export logs atomically, keeping the database in a perfect state.
+1. Copy connection settings from templates:
+   - `src/ChartEngine.API/appsettings.json.template` → `appsettings.json`
+   - `src/ChartEngine.API/appsettings.Development.json.template` → `appsettings.Development.json` (optional)
 
----
+2. Set `ConnectionStrings:Default` and `Storage:BasePath` in `appsettings.json`.
 
-## 🧪 Automated Testing Suite
+### Database
 
-The codebase has robust test coverage ensuring that logic changes do not break filtering, aggregation, or background processing rules.
-
-### Running the Tests:
-Run the xUnit test suite from the repository root:
 ```bash
-dotnet test
+dotnet ef database update --project src/ChartEngine.Infrastructure --startup-project src/ChartEngine.API
 ```
 
-### Coverage Highlights:
-1.  **Row Query & Range Parsing**: Verifies inclusive `[ ]`, exclusive `( )`, hyphenated, and custom-separated numerical boundary ranges for histogram queries.
-2.  **Export Scheduling**: Asserts that `StartExportAsync` saves correct DB states and enqueues jobs in background channels.
-3.  **Spreadsheet Generation**: Verifies that both CSV and Excel writers produce fully populated, properly filtered files matching header formats.
-4.  **Download Guardrails**: Validates that downloading files before processing finishes throws appropriate operational exceptions.
+### Run
+
+```bash
+dotnet run --project src/ChartEngine.API
+```
+
+API listens on **http://localhost:5110** (see `launchSettings.json`).
+
+### Test client
+
+Open `test_client.html` in a browser (with the API running):
+
+1. **Upload** — select a CSV; watch SSE progress; dataset ID auto-fills when complete.
+2. **Visualization** — **Run All Tests** exercises all 10 chart types against the dataset ID.
+
+For large files (e.g. 2M rows), expect sub-minute processing when dynamic config clamps hierarchy depth and dimension cardinality based on estimated row count.
+
+### Build and test
+
+```bash
+dotnet build --configuration Release
+dotnet test --configuration Release
+```
+
+Current suite: **14 tests** (`SchemaDetectorTests`, `TreeBuilderTests`, `ExportServiceTests`).
 
 ---
 
-## 🗺️ Scalability Roadmap
+## Key implementation notes
 
-1.  **Gzip Compression**: Enable transparent Gzip compression on `AggregationTrees` in the database to shrink the storage footprint of deep hierarchical aggregates by up to 95%.
-2.  **Job Cancellation**: Support manual job cancellation tokens from the frontend, allowing users to stop massive exports while running in background threads.
-3.  **Distributed Queues**: For horizontal scaling across multiple web instances, transition the in-memory `System.Threading.Channels` queue to a persistent broker like **RabbitMQ** or **Azure Service Bus**.
+### Dynamic config (tree size control)
+
+`DynamicConfigResolver` uses **estimated row count** (from upload: `file.Length / 100`) to set `MaxHierarchyDepth` and `MaxDimCardinality`. Underestimating row count (e.g. hardcoded `1000`) allows high-cardinality columns as dimensions and can explode tree size on multi-million-row files.
+
+### Aggregation tree storage
+
+`TreeRepository` serializes `{ tree, dimensions, metrics, rejected, totalRows }`, compresses with **GZip**, and stores base64 in `AggregationTrees`. `VisualizationService` must deserialize the **`tree`** property, not the wrapper root.
+
+### Performance
+
+- **Tree building:** index-based field access per row (avoids per-row dictionary churn on large CSVs).
+- **Exports:** streaming read/filter/write; Excel via **MiniExcel** with lazy enumeration.
+- **Upload limit:** Kestrel and multipart limits set to 2 GB.
+
+---
+
+## Documentation
+
+| Document | Topic |
+|----------|--------|
+| [docs/PROJECT_OVERVIEW.md](docs/PROJECT_OVERVIEW.md) | High-level map of the repo |
+| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Layering, EF, migrations, dependencies |
+| [docs/ARCHITECTURE_AND_FLOW.md](docs/ARCHITECTURE_AND_FLOW.md) | End-to-end request flows |
+| [docs/DEEP_DIVE_DATASET_UPLOAD.md](docs/DEEP_DIVE_DATASET_UPLOAD.md) | Upload pipeline details |
+| [docs/HOW_TO_GET_CHART_DATA.md](docs/HOW_TO_GET_CHART_DATA.md) | Visualization usage |
+| [docs/CHART_TYPE_AND_DRILL_LEVEL.md](docs/CHART_TYPE_AND_DRILL_LEVEL.md) | Chart types and drill-down behavior |
+| [docs/TRACING_GUIDE.md](docs/TRACING_GUIDE.md) | How to trace code for a feature |
+
+---
+
+## Technology stack
+
+| Area | Choice |
+|------|--------|
+| Runtime | .NET 10 |
+| API | ASP.NET Core, Swagger |
+| Database | SQL Server, EF Core 10 |
+| CSV | CsvHelper |
+| Excel export | MiniExcel |
+| Tests | xUnit |
+
+---
+
+## License
+
+See repository license terms (if applicable).
