@@ -74,16 +74,21 @@
                             const data = JSON.parse(jsonStr);
                             
                             // Check for completion response
-                            if (data.datasetId) {
-                                appendLog(`[SUCCESS] Dataset ${data.datasetId} processed successfully!`);
-                                appendLog(`Total Rows: ${data.totalRows}`);
-                                appendLog(`Dimensions: ${data.dimensions}`);
-                                appendLog(`Metrics: ${data.metrics}`);
+                            if (data.status === 'completed' && data.data) {
+                                appendLog(`[SUCCESS] Dataset ${data.data.datasetId} processed successfully!`);
+                                appendLog(`Total Rows: ${data.data.totalRows}`);
+                                appendLog(`Dimensions: ${data.data.dimensions}`);
+                                appendLog(`Metrics: ${data.data.metrics}`);
                                 uploadStatus.textContent = "Upload and Processing Complete!";
                             } 
+                            // Check for error
+                            else if (data.status === 'error') {
+                                appendLog(`[FAILED] Processing error: ${data.message}`, true);
+                                uploadStatus.textContent = "Processing Failed!";
+                            }
                             // Otherwise it's a progress event
-                            else if (data.percent !== undefined) {
-                                appendLog(`[PROGRESS] ${data.percent}% - ${data.message}`);
+                            else if (data.progress !== undefined) {
+                                appendLog(`[PROGRESS] ${data.progress}% - processing...`);
                             }
                         } catch (e) {
                             console.error("Failed to parse chunk", jsonStr, e);
