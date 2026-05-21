@@ -10,10 +10,23 @@ namespace ChartEngine.API.Controllers;
 public class DocumentsController : ControllerBase
 {
     private readonly IUploadProcessingService _uploadService;
+    private readonly IVisualizationService _visualizationService;
 
-    public DocumentsController(IUploadProcessingService uploadService)
+    public DocumentsController(IUploadProcessingService uploadService, IVisualizationService visualizationService)
     {
         _uploadService = uploadService;
+        _visualizationService = visualizationService;
+    }
+
+    [HttpGet("visual")]
+    public async Task<IActionResult> GetVisualization(
+        [FromQuery] Guid id, 
+        [FromQuery] string chartType = "bar", 
+        [FromQuery] int drillDown = 0, 
+        [FromQuery] string aggregation = "count")
+    {
+        var result = await _visualizationService.GetVisualizationAsync(id, chartType, drillDown, aggregation);
+        return Ok(result);
     }
 
     [HttpPost("upload")]
