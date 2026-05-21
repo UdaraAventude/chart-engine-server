@@ -66,6 +66,15 @@ public class DocumentsController : ControllerBase
         if (envelope == null)
             return NotFound(new { error = $"Metadata for dataset {id} not found." });
 
+        var config = await _datasetRepository.GetConfigAsync(id, ct);
+        var maxHierarchyDepth = envelope.MaxHierarchyDepth;
+        if (maxHierarchyDepth <= 0 || maxHierarchyDepth > envelope.Dimensions.Count)
+            maxHierarchyDepth = config?.MaxHierarchyDepth ?? envelope.MaxHierarchyDepth;
+        if (maxHierarchyDepth <= 0)
+            maxHierarchyDepth = Math.Min(
+                envelope.Dimensions.Count,
+                envelope.TotalRows > 1_000_000 ? 4 : envelope.Dimensions.Count);
+
         var dto = new ChartEngine.Application.DTOs.DatasetMetadataDto(
             dataset.Id,
             dataset.FileName,
@@ -73,7 +82,8 @@ public class DocumentsController : ControllerBase
             dataset.TotalRows > 0 ? dataset.TotalRows : envelope.TotalRows,
             envelope.Dimensions,
             envelope.Metrics,
-            envelope.Rejected);
+            envelope.Rejected,
+            maxHierarchyDepth);
 
         return Ok(dto);
     }

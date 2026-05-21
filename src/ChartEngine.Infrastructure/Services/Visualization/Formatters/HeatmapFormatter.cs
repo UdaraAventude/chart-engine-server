@@ -1,7 +1,8 @@
 using ChartEngine.Application.DTOs;
 using ChartEngine.Application.Interfaces.Visualization;
-using ChartEngine.Domain.Entities;
 using ChartEngine.Domain.ValueObjects;
+
+using ChartEngine.Infrastructure.Services.Visualization;
 
 namespace ChartEngine.Infrastructure.Services.Visualization.Formatters;
 
@@ -9,17 +10,13 @@ public class HeatmapFormatter : IChartFormatter
 {
     public string ChartType => "heatmap";
 
-    public ChartVisualizationDto Format(TreeNode node, int level, string groupBy)
+    public ChartVisualizationDto Format(TreeNode node, int level, string groupBy, string aggregation)
     {
-        var data = new List<object>();
-        if (node.Children != null)
+        return new ChartVisualizationDto
         {
-            foreach (var kvp in node.Children)
-            {
-                data.Add(new { id = kvp.Name, data = new[] { new { x = "Value", y = kvp.Count } } });
-            }
-        }
-
-        return new ChartVisualizationDto { ChartType = ChartType, Data = data, Meta = new VisualizationMetaDto { Level = level, NodesCount = node.Children?.Count ?? 0, GroupedBy = groupBy } };
+            ChartType = ChartType,
+            Data = HeatmapGridBuilder.Build(node, aggregation),
+            Meta = VisualizationMetaBuilder.Build(node, level, groupBy),
+        };
     }
 }

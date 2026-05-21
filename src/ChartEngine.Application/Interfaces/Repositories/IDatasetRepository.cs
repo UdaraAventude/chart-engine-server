@@ -15,6 +15,7 @@ public interface IDatasetRepository
     Task SaveColumnsAsync(IEnumerable<DatasetColumn> columns, CancellationToken ct = default);
     Task<IEnumerable<DatasetColumn>> GetColumnsAsync(Guid datasetId, CancellationToken ct = default);
     Task SaveConfigAsync(DatasetConfig config, CancellationToken ct = default);
+    Task<DatasetConfig?> GetConfigAsync(Guid datasetId, CancellationToken ct = default);
     Task<PagedListDto<DatasetListDto>> GetPagedDatasetsAsync(
         int page,
         int pageSize,

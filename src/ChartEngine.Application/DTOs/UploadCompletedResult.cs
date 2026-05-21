@@ -5,6 +5,7 @@ public record UploadCompletedResult(
     int TotalRows,
     int Dimensions,
     int Metrics,
+    int MaxHierarchyDepth,
     IReadOnlyList<string> DimensionColumns,
     IReadOnlyList<string> MetricColumns
 );

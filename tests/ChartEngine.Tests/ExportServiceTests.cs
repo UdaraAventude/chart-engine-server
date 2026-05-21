@@ -51,6 +51,8 @@ public class ExportServiceTests
         public Task SaveColumnsAsync(IEnumerable<DatasetColumn> columns, CancellationToken ct = default) => Task.CompletedTask;
         public Task<IEnumerable<DatasetColumn>> GetColumnsAsync(Guid datasetId, CancellationToken ct = default) => Task.FromResult<IEnumerable<DatasetColumn>>(Array.Empty<DatasetColumn>());
         public Task SaveConfigAsync(DatasetConfig config, CancellationToken ct = default) => Task.CompletedTask;
+        public Task<DatasetConfig?> GetConfigAsync(Guid datasetId, CancellationToken ct = default) =>
+            Task.FromResult<DatasetConfig?>(null);
 
         public Task<PagedListDto<DatasetListDto>> GetPagedDatasetsAsync(int page, int pageSize, string? sortBy, string? search, CancellationToken ct = default)
         {
