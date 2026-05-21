@@ -61,7 +61,7 @@ public class UploadProcessingService : IUploadProcessingService
             if (headers != null)
             {
                 int count = 0;
-                while (await csv.ReadAsync() && count < 100)
+                while (await csv.ReadAsync() && count < 500)
                 {
                     var row = new Dictionary<string, string>();
                     for (int i = 0; i < headers.Length; i++)
@@ -74,7 +74,8 @@ public class UploadProcessingService : IUploadProcessingService
             }
         }
         
-        var schema = _schemaDetector.Detect(sampleRows, 1000); // estimated count
+        int estimatedRowCount = (int)(file.Length / 100);
+        var schema = _schemaDetector.Detect(sampleRows, estimatedRowCount);
         
         var dimensions = schema.Dimensions.Count;
         var metrics = schema.Metrics.Count;
