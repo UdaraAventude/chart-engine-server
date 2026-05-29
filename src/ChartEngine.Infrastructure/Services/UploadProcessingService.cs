@@ -91,6 +91,20 @@ public class UploadProcessingService : IUploadProcessingService
         await onProgressAsync(92);
         await _treeRepository.SaveAsync(dataset.Id, treeNode, schema, treeResult.TotalRows);
 
+        var columns = new List<DatasetColumn>();
+        int order = 0;
+        foreach(var d in schema.Dimensions) {
+            int card = sampleRows.Select(r => r.TryGetValue(d, out var v) ? v?.Trim() : null).Where(v => !string.IsNullOrEmpty(v)).Distinct(StringComparer.OrdinalIgnoreCase).Count();
+            columns.Add(DatasetColumn.AsDimension(dataset.Id, d, card, order++));
+        }
+        foreach(var m in schema.Metrics) {
+            columns.Add(DatasetColumn.AsMetric(dataset.Id, m, order++));
+        }
+        foreach(var r in schema.Rejected) {
+            columns.Add(DatasetColumn.AsRejected(dataset.Id, r.Name, r.RejectionReason ?? "unknown", r.Cardinality, order++));
+        }
+        await _datasetRepository.SaveColumnsAsync(columns);
+
         var datasetConfig = DatasetConfig.Create(
             dataset.Id,
             schema.Config.MaxDimCardinality,
